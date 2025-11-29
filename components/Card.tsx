@@ -33,6 +33,8 @@ const Card: React.FC<CardProps> = ({ text, state, onClick, disabled, style, clas
         return "bg-yellow-300 border-yellow-400 text-yellow-900 shadow-md";
       case CardState.LOCKED_OTHER:
         return "bg-gray-200 border-gray-300 text-gray-400 cursor-not-allowed";
+      case CardState.ULTIMATE_WINNER:
+        return "bg-purple-500 border-purple-600 text-white shadow-lg";
       case CardState.IDLE:
       default:
         return "bg-white border-gray-300 text-gray-800 hover:bg-gray-50 cursor-pointer hover:shadow-sm";

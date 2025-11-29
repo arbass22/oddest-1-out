@@ -19,15 +19,12 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 interface CategoryCardProps {
   category: string;
   words: string[];
-  isWinner: boolean;
 }
 
-const CategoryCard: React.FC<CategoryCardProps> = ({ category, words, isWinner }) => {
-  const bgClass = isWinner ? "bg-green-100 border-green-200" : "bg-blue-100 border-blue-200";
-
+const CategoryCard: React.FC<CategoryCardProps> = ({ category, words }) => {
   return (
     <div
-      className={`col-span-3 h-16 ${bgClass} border-2 rounded-md flex flex-col items-center justify-center shadow-sm px-2 text-center select-none`}
+      className="col-span-3 h-16 bg-gray-100 border-gray-200 border-2 rounded-md flex flex-col items-center justify-center shadow-sm px-2 text-center select-none"
       style={{ animation: 'fadeIn 600ms ease-out' }}
     >
       <span className="font-bold text-gray-900 uppercase text-xs sm:text-sm tracking-widest leading-tight mb-0.5">
@@ -50,6 +47,7 @@ interface GameRowProps {
   gamePhase: GamePhase;
   isUltimateWinner: boolean;
   isPhase2: boolean;
+  isSolved: boolean;
   onCardClick: (rIdx: number, wIdx: number) => void;
 }
 
@@ -62,6 +60,7 @@ const GameRow: React.FC<GameRowProps> = ({
   gamePhase,
   isUltimateWinner,
   isPhase2,
+  isSolved,
   onCardClick
 }) => {
   const [gapSize, setGapSize] = useState('0.5rem');
@@ -82,14 +81,19 @@ const GameRow: React.FC<GameRowProps> = ({
 
   // REVEALED STATE: Only show category card + outlier
   if (displayState === 'revealed') {
-    const outlierState = isUltimateWinner ? CardState.WIN : CardState.CORRECT_ROW_WRONG_GAME;
+    // Ultimate winner shows purple, solved rows stay yellow, others keep selection color
+    let outlierState = CardState.SELECTED_PHASE2;
+    if (isUltimateWinner) {
+      outlierState = CardState.ULTIMATE_WINNER;
+    } else if (isSolved) {
+      outlierState = CardState.LOCKED_OUTLIER;
+    }
 
     return (
       <div className="grid grid-cols-4 gap-2 sm:gap-4 h-16">
         <CategoryCard
           category={row.category}
           words={nonOutlierWords}
-          isWinner={isUltimateWinner}
         />
         <Card
           text={outlierWord.text}
@@ -105,16 +109,17 @@ const GameRow: React.FC<GameRowProps> = ({
   const getCardState = (wIdx: number): CardState => {
     const isOutlier = wIdx === row.outlierIndex;
 
-    // Locked state: outlier is yellow, others are grayed out
-    if (displayState === 'locked') {
+    // Sliding the ultimate winner: show purple for outlier
+    if (displayState === 'sliding' && isUltimateWinner) {
+      return isOutlier ? CardState.ULTIMATE_WINNER : CardState.LOCKED_OTHER;
+    }
+
+    // Locked state or sliding a solved row: outlier is yellow, others are grayed out
+    if (displayState === 'locked' || (displayState === 'sliding' && isSolved)) {
       return isOutlier ? CardState.LOCKED_OUTLIER : CardState.LOCKED_OTHER;
     }
 
-    // During sliding, show the correct color for outlier
-    if (displayState === 'sliding' && isOutlier) {
-      return isUltimateWinner ? CardState.WIN : CardState.CORRECT_ROW_WRONG_GAME;
-    }
-
+    // Sliding an unsolved row: keep current colors
     if (failedIndices.has(wIdx)) return CardState.WRONG;
     if (selection === wIdx) return isPhase2 ? CardState.SELECTED_PHASE2 : CardState.SELECTED;
     return CardState.IDLE;
@@ -189,6 +194,7 @@ export default function App() {
 
   const [strikes, setStrikes] = useState<StrikeType[]>([]);
   const [failedGuesses, setFailedGuesses] = useState<Record<number, Set<number>>>({});
+  const [solvedRows, setSolvedRows] = useState<Set<number>>(new Set());
 
   // Track if animation is running to prevent double triggers
   const isAnimatingRef = useRef(false);
@@ -198,6 +204,7 @@ export default function App() {
     setRowStates({ 0: 'interactive', 1: 'interactive', 2: 'interactive', 3: 'interactive' });
     setStrikes([]);
     setFailedGuesses({});
+    setSolvedRows(new Set());
     setVisualRowOrder([0, 1, 2, 3]);
     setShowMetaOverlay(false);
     setGamePhase('playing');
@@ -327,6 +334,7 @@ export default function App() {
         // Partial correct (Yellow lock) - lock the row but don't reveal yet
         const newStrikes = [...strikes, 'BLUE' as StrikeType];
         setStrikes(newStrikes);
+        setSolvedRows(prev => new Set([...prev, rowIndex]));
         setRowStates(prev => ({ ...prev, [rowIndex]: 'locked' }));
 
         if (newStrikes.length >= STRIKE_LIMIT) {
@@ -382,7 +390,7 @@ export default function App() {
 
       <header className="max-w-2xl w-full flex flex-col items-center mb-8">
         <h1 className="font-serif text-4xl font-bold text-gray-900 tracking-tight mb-2">
-          Oddest<span className="text-yellow-500">1</span>Out
+          Oddest<span className="text-purple-500">1</span>Out
         </h1>
         <div className="flex items-center space-x-2 text-sm text-gray-500 uppercase tracking-widest font-semibold">
           <span>Strikes:</span>
@@ -452,6 +460,7 @@ export default function App() {
                   gamePhase={gamePhase}
                   isUltimateWinner={isWinner}
                   isPhase2={allRowsSelected}
+                  isSolved={solvedRows.has(rIdx)}
                   onCardClick={handleCardClick}
                 />
               </div>
@@ -471,7 +480,7 @@ export default function App() {
               animation: 'fadeIn 800ms ease-out'
             }}
           >
-            <div className="w-full h-full bg-blue-100 border-2 border-blue-200 rounded-md shadow-lg flex flex-col items-center justify-center text-center p-3 select-none">
+            <div className="w-full h-full bg-gray-100 border-2 border-gray-200 rounded-md shadow-lg flex flex-col items-center justify-center text-center p-3 select-none">
               <span className="font-bold text-gray-900 uppercase text-xs sm:text-sm tracking-widest leading-tight mb-3">
                 {gameData.metaCategory}
               </span>

@@ -568,6 +568,51 @@ export default function App() {
         </button>
         <div className="flex items-center gap-3">
           <button
+            onClick={async () => {
+              let shareText = 'Can you find the Oddest1Out? 🧩';
+
+              if (gameResult === 'won') {
+                const strikes = score.filter(s => s !== 'PURPLE').length;
+                if (strikes === 0) {
+                  shareText = 'I found the Oddest1Out with no strikes! 🟣 Can you beat that?';
+                } else {
+                  shareText = `I found the Oddest1Out! ${'🔴'.repeat(score.filter(s => s === 'RED').length)}${'🟡'.repeat(score.filter(s => s === 'YELLOW').length)}🟣 Can you do better?`;
+                }
+              } else if (gameResult === 'lost') {
+                shareText = `I couldn't find the Oddest1Out today 😅 Can you?`;
+              }
+
+              try {
+                await navigator.share({
+                  title: 'Oddest1Out',
+                  text: shareText,
+                  url: window.location.href,
+                });
+              } catch (err) {
+                // Fallback: copy to clipboard
+                const fullText = `${shareText}\n${window.location.href}`;
+                await navigator.clipboard.writeText(fullText);
+                alert('Copied to clipboard!');
+              }
+            }}
+            className="p-2 text-stone-700 dark:text-stone-300 hover:text-violet-500 transition-colors"
+            aria-label="Share"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"
+              />
+            </svg>
+          </button>
+          <button
             onClick={() => setDarkMode(!darkMode)}
             className="p-2 text-stone-700 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white transition-colors"
             aria-label="Toggle dark mode"
@@ -604,10 +649,22 @@ export default function App() {
           </button>
           <button
             onClick={() => setShowInfo(true)}
-            className="w-7 h-7 rounded-full border-2 border-stone-400 dark:border-stone-500 text-stone-400 dark:text-stone-500 hover:border-violet-500 hover:text-violet-500 transition-colors text-sm font-bold flex items-center justify-center"
+            className="p-2 text-stone-700 dark:text-stone-300 hover:text-violet-500 transition-colors"
             aria-label="How to play"
           >
-            ?
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
           </button>
         </div>
       </nav>

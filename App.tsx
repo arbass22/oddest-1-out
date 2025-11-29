@@ -178,11 +178,47 @@ const GameRow: React.FC<GameRowProps> = ({
 };
 
 
+// --- Info Modal Component ---
+const InfoModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div
+      className="bg-white rounded-lg shadow-2xl max-w-md w-full p-6 text-left"
+      onClick={e => e.stopPropagation()}
+    >
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-serif font-bold text-gray-900">How to Play</h2>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+      </div>
+      <div className="space-y-4 text-gray-700 text-sm">
+        <div>
+          <h3 className="font-bold text-gray-900 mb-1">Goal</h3>
+          <p>Find the <span className="text-purple-600 font-semibold">Oddest1Out</span> — the outlier among outliers.</p>
+        </div>
+        <div>
+          <h3 className="font-bold text-gray-900 mb-1">Phase 1: Select Outliers</h3>
+          <p>Each row has 4 words. Three belong to a category, one doesn't. Select the outlier in each row.</p>
+        </div>
+        <div>
+          <h3 className="font-bold text-gray-900 mb-1">Phase 2: Find the Oddest1Out</h3>
+          <p>Once all rows are selected, click your choice for the ultimate outlier. Three of the outliers share a hidden connection — one doesn't.</p>
+        </div>
+        <div>
+          <h3 className="font-bold text-gray-900 mb-1">Strikes</h3>
+          <p><span className="text-red-500 font-semibold">Red</span> = wrong guess (not an outlier)<br/>
+          <span className="text-yellow-500 font-semibold">Yellow</span> = correct outlier, but not the Oddest1Out<br/>
+          3 strikes and you lose!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 // --- Main App Component ---
 export default function App() {
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [gamePhase, setGamePhase] = useState<GamePhase>('playing');
   const [gameResult, setGameResult] = useState<'won' | 'lost' | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
 
   const [selections, setSelections] = useState<Record<number, number>>({});
   const [rowStates, setRowStates] = useState<Record<number, RowDisplayState>>({
@@ -195,6 +231,7 @@ export default function App() {
   const [strikes, setStrikes] = useState<StrikeType[]>([]);
   const [failedGuesses, setFailedGuesses] = useState<Record<number, Set<number>>>({});
   const [solvedRows, setSolvedRows] = useState<Set<number>>(new Set());
+  const [feedbackMessage, setFeedbackMessage] = useState<'wrong' | 'partial' | null>(null);
 
   // Track if animation is running to prevent double triggers
   const isAnimatingRef = useRef(false);
@@ -205,6 +242,7 @@ export default function App() {
     setStrikes([]);
     setFailedGuesses({});
     setSolvedRows(new Set());
+    setFeedbackMessage(null);
     setVisualRowOrder([0, 1, 2, 3]);
     setShowMetaOverlay(false);
     setGamePhase('playing');
@@ -312,12 +350,14 @@ export default function App() {
     // --- PHASE 1: SELECTION ---
     if (!allRowsSelected) {
       setSelections(prev => ({ ...prev, [rowIndex]: wordIndex }));
+      setFeedbackMessage(null);
       return;
     }
 
     // --- PHASE 2: VERDICT ---
     if (selections[rowIndex] !== wordIndex) {
       setSelections(prev => ({ ...prev, [rowIndex]: wordIndex }));
+      setFeedbackMessage(null);
       return;
     }
 
@@ -336,6 +376,7 @@ export default function App() {
         setStrikes(newStrikes);
         setSolvedRows(prev => new Set([...prev, rowIndex]));
         setRowStates(prev => ({ ...prev, [rowIndex]: 'locked' }));
+        setFeedbackMessage('partial');
 
         if (newStrikes.length >= STRIKE_LIMIT) {
           await runLossSequence(gameData.ultimateOutlierRowIndex);
@@ -345,6 +386,7 @@ export default function App() {
       // WRONG (Red strike)
       const newStrikes = [...strikes, 'RED' as StrikeType];
       setStrikes(newStrikes);
+      setFeedbackMessage('wrong');
 
       setFailedGuesses(prev => {
         const rowSet = new Set(prev[rowIndex] || []);
@@ -389,9 +431,18 @@ export default function App() {
       `}</style>
 
       <header className="max-w-2xl w-full flex flex-col items-center mb-8">
-        <h1 className="font-serif text-4xl font-bold text-gray-900 tracking-tight mb-2">
-          Oddest<span className="text-purple-500">1</span>Out
-        </h1>
+        <div className="flex items-center gap-2 mb-2">
+          <h1 className="font-serif text-4xl font-bold text-gray-900 tracking-tight">
+            Oddest<span className="text-purple-500">1</span>Out
+          </h1>
+          <button
+            onClick={() => setShowInfo(true)}
+            className="w-6 h-6 rounded-full border-2 border-gray-400 text-gray-400 hover:border-purple-500 hover:text-purple-500 transition-colors text-sm font-bold flex items-center justify-center"
+            aria-label="How to play"
+          >
+            ?
+          </button>
+        </div>
         <div className="flex items-center space-x-2 text-sm text-gray-500 uppercase tracking-widest font-semibold">
           <span>Strikes:</span>
           <div className="flex space-x-1">
@@ -425,10 +476,14 @@ export default function App() {
             </button>
           </div>
         ) : (
-          <p className={`font-medium transition-colors duration-300 ${allRowsSelected ? 'text-black scale-105' : 'text-gray-600'}`}>
-            {!allRowsSelected
-              ? "Phase 1: Select the outlier in each row."
-              : "Phase 2: Identify the Ultimate Odd1Out among the yellow cards."}
+          <p className={`font-medium transition-colors duration-300 ${feedbackMessage === 'wrong' ? 'text-red-500' : feedbackMessage === 'partial' ? 'text-yellow-600' : allRowsSelected ? 'text-purple-600' : 'text-gray-600'}`}>
+            {feedbackMessage === 'wrong'
+              ? "That one wasn't even Odd, try again"
+              : feedbackMessage === 'partial'
+              ? "That's the Odd one out for this row, but not the Oddest one of them all."
+              : !allRowsSelected
+              ? "Select the outlier in each row"
+              : "Find the Oddest1Out among your selections"}
           </p>
         )}
       </div>
@@ -495,6 +550,8 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
     </div>
   );
 }

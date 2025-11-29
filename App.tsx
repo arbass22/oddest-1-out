@@ -2,13 +2,12 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { getTodaysPuzzle, getRandomPastPuzzle } from "./data/puzzles";
 import {
   GameData,
-  CardState,
-  GameStatus,
   GameRow as GameRowType,
   RowDisplayState,
   GamePhase,
 } from "./types";
-import Card from "./components/Card";
+import GameRow from "./components/GameRow";
+import InfoModal from "./components/InfoModal";
 
 const SCORE_LIMIT = 3;
 type ScoreType = "RED" | "YELLOW" | "PURPLE";
@@ -22,252 +21,6 @@ const WIN_PAUSE = 1000;
 // Helper for async delays
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// --- Category Card Component ---
-interface CategoryCardProps {
-  category: string;
-  words: string[];
-}
-
-const CategoryCard: React.FC<CategoryCardProps> = ({ category, words }) => {
-  return (
-    <div
-      className="col-span-3 h-14 sm:h-16 bg-stone-100 dark:bg-stone-800 border-stone-200 dark:border-stone-700 border-2 rounded-md flex flex-col items-center justify-center shadow-sm px-2 text-center select-none"
-      style={{ animation: "fadeIn 600ms ease-out" }}
-    >
-      <span className="font-bold text-stone-900 dark:text-stone-100 uppercase text-xs sm:text-sm tracking-widest leading-tight mb-0.5">
-        {category}
-      </span>
-      <span className="text-stone-600 dark:text-stone-400 uppercase text-[10px] sm:text-xs font-medium truncate w-full px-2">
-        {words.join(", ")}
-      </span>
-    </div>
-  );
-};
-
-// --- Game Row Component ---
-interface GameRowProps {
-  row: GameRowType;
-  rowIndex: number;
-  displayState: RowDisplayState;
-  selection: number | undefined;
-  failedIndices: Set<number>;
-  gamePhase: GamePhase;
-  isUltimateWinner: boolean;
-  isPhase2: boolean;
-  isSolved: boolean;
-  onCardClick: (rIdx: number, wIdx: number) => void;
-}
-
-const GameRow: React.FC<GameRowProps> = ({
-  row,
-  rowIndex,
-  displayState,
-  selection,
-  failedIndices,
-  gamePhase,
-  isUltimateWinner,
-  isPhase2,
-  isSolved,
-  onCardClick,
-}) => {
-  const [gapSize, setGapSize] = useState("0.5rem");
-
-  useEffect(() => {
-    const updateGap = () => {
-      setGapSize(window.innerWidth >= 640 ? "1rem" : "0.5rem");
-    };
-    updateGap();
-    window.addEventListener("resize", updateGap);
-    return () => window.removeEventListener("resize", updateGap);
-  }, []);
-
-  const outlierWord = row.words[row.outlierIndex];
-  const nonOutlierWords = row.words
-    .filter((_, idx) => idx !== row.outlierIndex)
-    .map((w) => w.text);
-
-  // REVEALED STATE: Only show category card + outlier
-  if (displayState === "revealed") {
-    // Ultimate winner shows purple, solved rows stay yellow, others keep selection color
-    let outlierState = CardState.SELECTED_PHASE2;
-    if (isUltimateWinner) {
-      outlierState = CardState.ULTIMATE_WINNER;
-    } else if (isSolved) {
-      outlierState = CardState.LOCKED_OUTLIER;
-    }
-
-    return (
-      <div className="grid grid-cols-4 gap-2 sm:gap-4 h-14 sm:h-16">
-        <CategoryCard category={row.category} words={nonOutlierWords} />
-        <Card
-          text={outlierWord.text}
-          state={outlierState}
-          onClick={() => {}}
-          disabled={true}
-        />
-      </div>
-    );
-  }
-
-  // Get card state for interactive/sliding/locked modes
-  const getCardState = (wIdx: number): CardState => {
-    const isOutlier = wIdx === row.outlierIndex;
-
-    // Sliding the ultimate winner: show purple for outlier
-    if (displayState === "sliding" && isUltimateWinner) {
-      return isOutlier ? CardState.ULTIMATE_WINNER : CardState.LOCKED_OTHER;
-    }
-
-    // Locked state or sliding a solved row: outlier is yellow, others are grayed out
-    if (displayState === "locked" || (displayState === "sliding" && isSolved)) {
-      return isOutlier ? CardState.LOCKED_OUTLIER : CardState.LOCKED_OTHER;
-    }
-
-    // Sliding an unsolved row: keep current colors
-    if (failedIndices.has(wIdx)) return CardState.WRONG;
-    if (selection === wIdx)
-      return isPhase2 ? CardState.SELECTED_PHASE2 : CardState.SELECTED;
-    return CardState.IDLE;
-  };
-
-  // Calculate slide positions
-  const getCardStyle = (wIdx: number): React.CSSProperties => {
-    if (displayState !== "sliding") {
-      return {};
-    }
-
-    const isOutlier = wIdx === row.outlierIndex;
-    const outlierIdx = row.outlierIndex;
-
-    if (isOutlier) {
-      // Outlier moves to position 3 (far right)
-      const slotsToMove = 3 - wIdx;
-      return {
-        transform:
-          slotsToMove !== 0
-            ? `translateX(calc(${slotsToMove} * (100% + ${gapSize})))`
-            : undefined,
-        transition: `transform ${SLIDE_DURATION}ms cubic-bezier(0.4, 0, 0.2, 1)`,
-        zIndex: 20,
-      };
-    } else {
-      // Non-outliers fill positions 0, 1, 2 in original relative order
-      let nonOutlierOrder = 0;
-      for (let i = 0; i < 4; i++) {
-        if (i === outlierIdx) continue;
-        if (i === wIdx) break;
-        nonOutlierOrder++;
-      }
-      const targetPosition = nonOutlierOrder;
-      const slotsToMove = targetPosition - wIdx;
-
-      return {
-        transform:
-          slotsToMove !== 0
-            ? `translateX(calc(${slotsToMove} * (100% + ${gapSize})))`
-            : undefined,
-        transition: `transform ${SLIDE_DURATION}ms cubic-bezier(0.4, 0, 0.2, 1)`,
-      };
-    }
-  };
-
-  // INTERACTIVE or SLIDING: Show all 4 cards
-  return (
-    <div className="grid grid-cols-4 gap-2 sm:gap-4 h-14 sm:h-16">
-      {row.words.map((word, wIdx) => (
-        <Card
-          key={word.id}
-          text={word.text}
-          state={getCardState(wIdx)}
-          onClick={() => onCardClick(rowIndex, wIdx)}
-          disabled={
-            gamePhase !== "playing" ||
-            failedIndices.has(wIdx) ||
-            displayState !== "interactive"
-          }
-          style={getCardStyle(wIdx)}
-        />
-      ))}
-    </div>
-  );
-};
-
-// --- Info Modal Component ---
-const InfoModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
-  <div
-    className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-    onClick={onClose}
-  >
-    <div
-      className="bg-white dark:bg-stone-800 rounded-lg shadow-2xl max-w-md w-full p-4 sm:p-6 text-left"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg sm:text-xl font-serif font-bold text-stone-900 dark:text-stone-100">
-          How to Play
-        </h2>
-        <button
-          onClick={onClose}
-          className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 text-2xl leading-none"
-        >
-          &times;
-        </button>
-      </div>
-      <div className="space-y-3 sm:space-y-4 text-stone-700 dark:text-stone-300 text-xs sm:text-sm">
-        <div>
-          <h3 className="font-bold text-stone-900 dark:text-stone-100 mb-1">
-            Goal
-          </h3>
-          <p>
-            Find the{" "}
-            <span className="font-semibold">
-              Oddest<span className="text-violet-500">1</span>Out
-            </span>{" "}
-            — the outlier among outliers.
-          </p>
-        </div>
-        <div>
-          <h3 className="font-bold text-stone-900 dark:text-stone-100 mb-1">
-            Phase 1: Select the Odd one out
-          </h3>
-          <p>
-            Each row has four words. Three belong to a category, one doesn't.
-            Select the Odd one in each row.
-          </p>
-        </div>
-        <div>
-          <h3 className="font-bold text-stone-900 dark:text-stone-100 mb-1">
-            Phase 2: Find the Oddest<span className="text-violet-500">1</span>
-            Out
-          </h3>
-          <p>
-            Once all rows have an Odd word selected, tap your choice for the
-            Oddest word. Three of the Odd words share a hidden connection — one
-            does not.
-          </p>
-        </div>
-        <div>
-          <h3 className="font-bold text-stone-900 dark:text-stone-100 mb-1">
-            Strikes
-          </h3>
-          <p>
-            <span className="text-rose-500 font-semibold">Red</span> = Wrong
-            guess (not an odd word).
-            <br />
-            <span className="text-amber-500 font-semibold">Yellow</span> =
-            Correct word in row, but not the{" "}
-            <span className="font-semibold">
-              Oddest<span className="text-violet-500">1</span>Out
-            </span>
-            <br />3 strikes and you lose!
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-// --- Main App Component ---
 export default function App() {
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [gamePhase, setGamePhase] = useState<GamePhase>("playing");
@@ -678,7 +431,7 @@ export default function App() {
           <div className="flex space-x-1">
             {[...Array(SCORE_LIMIT)].map((_, i) => {
               const item = score[i];
-              let colorClass = "bg-stone-300";
+              let colorClass = "bg-stone-300 dark:bg-stone-700";
               if (item === "RED") colorClass = "bg-rose-500";
               if (item === "YELLOW") colorClass = "bg-amber-400";
               if (item === "PURPLE") colorClass = "bg-violet-500";
@@ -721,9 +474,7 @@ export default function App() {
                 : feedbackMessage === "partial"
                 ? "text-amber-500"
                 : feedbackMessage === "lastguess"
-                ? "text-violet-500 font-bold"
-                : allRowsSelected
-                ? "text-violet-500"
+                ? "text-rose-500 font-bold"
                 : "text-stone-600 dark:text-stone-400"
             }`}
           >
@@ -771,6 +522,7 @@ export default function App() {
                   isUltimateWinner={isWinner}
                   isPhase2={allRowsSelected}
                   isSolved={solvedRows.has(rIdx)}
+                  slideDuration={SLIDE_DURATION}
                   onCardClick={handleCardClick}
                 />
               </div>

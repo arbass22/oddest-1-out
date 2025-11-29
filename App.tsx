@@ -1,10 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { getTodaysPuzzle, getRandomPastPuzzle } from './data/puzzles';
-import { GameData, CardState, GameStatus, GameRow as GameRowType, RowDisplayState, GamePhase } from './types';
-import Card from './components/Card';
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { getTodaysPuzzle, getRandomPastPuzzle } from "./data/puzzles";
+import {
+  GameData,
+  CardState,
+  GameStatus,
+  GameRow as GameRowType,
+  RowDisplayState,
+  GamePhase,
+} from "./types";
+import Card from "./components/Card";
 
 const SCORE_LIMIT = 3;
-type ScoreType = 'RED' | 'YELLOW' | 'PURPLE';
+type ScoreType = "RED" | "YELLOW" | "PURPLE";
 
 // Animation timing constants
 const SLIDE_DURATION = 800;
@@ -13,7 +20,7 @@ const ROW_REORDER_DURATION = 1000;
 const WIN_PAUSE = 1000;
 
 // Helper for async delays
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // --- Category Card Component ---
 interface CategoryCardProps {
@@ -25,13 +32,13 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, words }) => {
   return (
     <div
       className="col-span-3 h-14 sm:h-16 bg-stone-100 dark:bg-stone-800 border-stone-200 dark:border-stone-700 border-2 rounded-md flex flex-col items-center justify-center shadow-sm px-2 text-center select-none"
-      style={{ animation: 'fadeIn 600ms ease-out' }}
+      style={{ animation: "fadeIn 600ms ease-out" }}
     >
       <span className="font-bold text-stone-900 dark:text-stone-100 uppercase text-xs sm:text-sm tracking-widest leading-tight mb-0.5">
         {category}
       </span>
       <span className="text-stone-600 dark:text-stone-400 uppercase text-[10px] sm:text-xs font-medium truncate w-full px-2">
-        {words.join(', ')}
+        {words.join(", ")}
       </span>
     </div>
   );
@@ -61,26 +68,26 @@ const GameRow: React.FC<GameRowProps> = ({
   isUltimateWinner,
   isPhase2,
   isSolved,
-  onCardClick
+  onCardClick,
 }) => {
-  const [gapSize, setGapSize] = useState('0.5rem');
+  const [gapSize, setGapSize] = useState("0.5rem");
 
   useEffect(() => {
     const updateGap = () => {
-      setGapSize(window.innerWidth >= 640 ? '1rem' : '0.5rem');
+      setGapSize(window.innerWidth >= 640 ? "1rem" : "0.5rem");
     };
     updateGap();
-    window.addEventListener('resize', updateGap);
-    return () => window.removeEventListener('resize', updateGap);
+    window.addEventListener("resize", updateGap);
+    return () => window.removeEventListener("resize", updateGap);
   }, []);
 
   const outlierWord = row.words[row.outlierIndex];
   const nonOutlierWords = row.words
     .filter((_, idx) => idx !== row.outlierIndex)
-    .map(w => w.text);
+    .map((w) => w.text);
 
   // REVEALED STATE: Only show category card + outlier
-  if (displayState === 'revealed') {
+  if (displayState === "revealed") {
     // Ultimate winner shows purple, solved rows stay yellow, others keep selection color
     let outlierState = CardState.SELECTED_PHASE2;
     if (isUltimateWinner) {
@@ -91,10 +98,7 @@ const GameRow: React.FC<GameRowProps> = ({
 
     return (
       <div className="grid grid-cols-4 gap-2 sm:gap-4 h-14 sm:h-16">
-        <CategoryCard
-          category={row.category}
-          words={nonOutlierWords}
-        />
+        <CategoryCard category={row.category} words={nonOutlierWords} />
         <Card
           text={outlierWord.text}
           state={outlierState}
@@ -110,24 +114,25 @@ const GameRow: React.FC<GameRowProps> = ({
     const isOutlier = wIdx === row.outlierIndex;
 
     // Sliding the ultimate winner: show purple for outlier
-    if (displayState === 'sliding' && isUltimateWinner) {
+    if (displayState === "sliding" && isUltimateWinner) {
       return isOutlier ? CardState.ULTIMATE_WINNER : CardState.LOCKED_OTHER;
     }
 
     // Locked state or sliding a solved row: outlier is yellow, others are grayed out
-    if (displayState === 'locked' || (displayState === 'sliding' && isSolved)) {
+    if (displayState === "locked" || (displayState === "sliding" && isSolved)) {
       return isOutlier ? CardState.LOCKED_OUTLIER : CardState.LOCKED_OTHER;
     }
 
     // Sliding an unsolved row: keep current colors
     if (failedIndices.has(wIdx)) return CardState.WRONG;
-    if (selection === wIdx) return isPhase2 ? CardState.SELECTED_PHASE2 : CardState.SELECTED;
+    if (selection === wIdx)
+      return isPhase2 ? CardState.SELECTED_PHASE2 : CardState.SELECTED;
     return CardState.IDLE;
   };
 
   // Calculate slide positions
   const getCardStyle = (wIdx: number): React.CSSProperties => {
-    if (displayState !== 'sliding') {
+    if (displayState !== "sliding") {
       return {};
     }
 
@@ -138,9 +143,12 @@ const GameRow: React.FC<GameRowProps> = ({
       // Outlier moves to position 3 (far right)
       const slotsToMove = 3 - wIdx;
       return {
-        transform: slotsToMove !== 0 ? `translateX(calc(${slotsToMove} * (100% + ${gapSize})))` : undefined,
+        transform:
+          slotsToMove !== 0
+            ? `translateX(calc(${slotsToMove} * (100% + ${gapSize})))`
+            : undefined,
         transition: `transform ${SLIDE_DURATION}ms cubic-bezier(0.4, 0, 0.2, 1)`,
-        zIndex: 20
+        zIndex: 20,
       };
     } else {
       // Non-outliers fill positions 0, 1, 2 in original relative order
@@ -154,8 +162,11 @@ const GameRow: React.FC<GameRowProps> = ({
       const slotsToMove = targetPosition - wIdx;
 
       return {
-        transform: slotsToMove !== 0 ? `translateX(calc(${slotsToMove} * (100% + ${gapSize})))` : undefined,
-        transition: `transform ${SLIDE_DURATION}ms cubic-bezier(0.4, 0, 0.2, 1)`
+        transform:
+          slotsToMove !== 0
+            ? `translateX(calc(${slotsToMove} * (100% + ${gapSize})))`
+            : undefined,
+        transition: `transform ${SLIDE_DURATION}ms cubic-bezier(0.4, 0, 0.2, 1)`,
       };
     }
   };
@@ -169,7 +180,11 @@ const GameRow: React.FC<GameRowProps> = ({
           text={word.text}
           state={getCardState(wIdx)}
           onClick={() => onCardClick(rowIndex, wIdx)}
-          disabled={gamePhase !== 'playing' || failedIndices.has(wIdx) || displayState !== 'interactive'}
+          disabled={
+            gamePhase !== "playing" ||
+            failedIndices.has(wIdx) ||
+            displayState !== "interactive"
+          }
           style={getCardStyle(wIdx)}
         />
       ))}
@@ -177,36 +192,75 @@ const GameRow: React.FC<GameRowProps> = ({
   );
 };
 
-
 // --- Info Modal Component ---
 const InfoModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
-  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+  <div
+    className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+    onClick={onClose}
+  >
     <div
       className="bg-white dark:bg-stone-800 rounded-lg shadow-2xl max-w-md w-full p-4 sm:p-6 text-left"
-      onClick={e => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
     >
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg sm:text-xl font-serif font-bold text-stone-900 dark:text-stone-100">How to Play</h2>
-        <button onClick={onClose} className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 text-2xl leading-none">&times;</button>
+        <h2 className="text-lg sm:text-xl font-serif font-bold text-stone-900 dark:text-stone-100">
+          How to Play
+        </h2>
+        <button
+          onClick={onClose}
+          className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300 text-2xl leading-none"
+        >
+          &times;
+        </button>
       </div>
       <div className="space-y-3 sm:space-y-4 text-stone-700 dark:text-stone-300 text-xs sm:text-sm">
         <div>
-          <h3 className="font-bold text-stone-900 dark:text-stone-100 mb-1">Goal</h3>
-          <p>Find the <span className="text-violet-500 font-semibold">Oddest1Out</span> — the outlier among outliers.</p>
+          <h3 className="font-bold text-stone-900 dark:text-stone-100 mb-1">
+            Goal
+          </h3>
+          <p>
+            Find the{" "}
+            <span className="font-semibold">
+              Oddest<span className="text-violet-500">1</span>Out
+            </span>{" "}
+            — the outlier among outliers.
+          </p>
         </div>
         <div>
-          <h3 className="font-bold text-stone-900 dark:text-stone-100 mb-1">Phase 1: Select Outliers</h3>
-          <p>Each row has 4 words. Three belong to a category, one doesn't. Select the outlier in each row.</p>
+          <h3 className="font-bold text-stone-900 dark:text-stone-100 mb-1">
+            Phase 1: Select the Odd one out
+          </h3>
+          <p>
+            Each row has four words. Three belong to a category, one doesn't.
+            Select the Odd one in each row.
+          </p>
         </div>
         <div>
-          <h3 className="font-bold text-stone-900 dark:text-stone-100 mb-1">Phase 2: Find the Oddest1Out</h3>
-          <p>Once all rows are selected, click your choice for the ultimate outlier. Three of the outliers share a hidden connection — one doesn't.</p>
+          <h3 className="font-bold text-stone-900 dark:text-stone-100 mb-1">
+            Phase 2: Find the Oddest<span className="text-violet-500">1</span>
+            Out
+          </h3>
+          <p>
+            Once all rows have an Odd word selected, tap your choice for the
+            Oddest word. Three of the Odd words share a hidden connection — one
+            does not.
+          </p>
         </div>
         <div>
-          <h3 className="font-bold text-stone-900 dark:text-stone-100 mb-1">Strikes</h3>
-          <p><span className="text-rose-500 font-semibold">Red</span> = wrong guess (not an outlier)<br/>
-          <span className="text-amber-500 font-semibold">Yellow</span> = correct outlier, but not the Oddest1Out<br/>
-          3 strikes and you lose!</p>
+          <h3 className="font-bold text-stone-900 dark:text-stone-100 mb-1">
+            Strikes
+          </h3>
+          <p>
+            <span className="text-rose-500 font-semibold">Red</span> = Wrong
+            guess (not an odd word).
+            <br />
+            <span className="text-amber-500 font-semibold">Yellow</span> =
+            Correct word in row, but not the{" "}
+            <span className="font-semibold">
+              Oddest<span className="text-violet-500">1</span>Out
+            </span>
+            <br />3 strikes and you lose!
+          </p>
         </div>
       </div>
     </div>
@@ -216,62 +270,74 @@ const InfoModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
 // --- Main App Component ---
 export default function App() {
   const [gameData, setGameData] = useState<GameData | null>(null);
-  const [gamePhase, setGamePhase] = useState<GamePhase>('playing');
-  const [gameResult, setGameResult] = useState<'won' | 'lost' | null>(null);
+  const [gamePhase, setGamePhase] = useState<GamePhase>("playing");
+  const [gameResult, setGameResult] = useState<"won" | "lost" | null>(null);
   const [showInfo, setShowInfo] = useState(false);
-  const [rowHeight, setRowHeight] = useState('4rem');
+  const [rowHeight, setRowHeight] = useState("4rem");
   const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('darkMode');
-      return stored === null ? true : stored === 'true';
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("darkMode");
+      return stored === null ? true : stored === "true";
     }
     return true;
   });
 
   useEffect(() => {
     if (darkMode) {
-      document.documentElement.classList.add('dark');
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove("dark");
     }
-    localStorage.setItem('darkMode', String(darkMode));
+    localStorage.setItem("darkMode", String(darkMode));
   }, [darkMode]);
 
   useEffect(() => {
     const updateRowHeight = () => {
-      setRowHeight(window.innerWidth >= 640 ? '4rem' : '3.5rem');
+      setRowHeight(window.innerWidth >= 640 ? "4rem" : "3.5rem");
     };
     updateRowHeight();
-    window.addEventListener('resize', updateRowHeight);
-    return () => window.removeEventListener('resize', updateRowHeight);
+    window.addEventListener("resize", updateRowHeight);
+    return () => window.removeEventListener("resize", updateRowHeight);
   }, []);
 
   const [selections, setSelections] = useState<Record<number, number>>({});
   const [rowStates, setRowStates] = useState<Record<number, RowDisplayState>>({
-    0: 'interactive', 1: 'interactive', 2: 'interactive', 3: 'interactive'
+    0: "interactive",
+    1: "interactive",
+    2: "interactive",
+    3: "interactive",
   });
 
   const [visualRowOrder, setVisualRowOrder] = useState<number[]>([0, 1, 2, 3]);
   const [showMetaOverlay, setShowMetaOverlay] = useState(false);
 
   const [score, setScore] = useState<ScoreType[]>([]);
-  const [failedGuesses, setFailedGuesses] = useState<Record<number, Set<number>>>({});
+  const [failedGuesses, setFailedGuesses] = useState<
+    Record<number, Set<number>>
+  >({});
   const [solvedRows, setSolvedRows] = useState<Set<number>>(new Set());
-  const [feedbackMessage, setFeedbackMessage] = useState<'wrong' | 'partial' | 'lastguess' | null>(null);
+  const [feedbackMessage, setFeedbackMessage] = useState<
+    "wrong" | "partial" | "lastguess" | null
+  >(null);
 
   // Track if animation is running to prevent double triggers
   const isAnimatingRef = useRef(false);
 
   const resetGameState = useCallback(() => {
     setSelections({});
-    setRowStates({ 0: 'interactive', 1: 'interactive', 2: 'interactive', 3: 'interactive' });
+    setRowStates({
+      0: "interactive",
+      1: "interactive",
+      2: "interactive",
+      3: "interactive",
+    });
     setScore([]);
     setFailedGuesses({});
     setSolvedRows(new Set());
     setFeedbackMessage(null);
     setVisualRowOrder([0, 1, 2, 3]);
     setShowMetaOverlay(false);
-    setGamePhase('playing');
+    setGamePhase("playing");
     setGameResult(null);
     isAnimatingRef.current = false;
   }, []);
@@ -299,23 +365,23 @@ export default function App() {
   const runWinSequence = useCallback(async (winnerRowIndex: number) => {
     if (isAnimatingRef.current) return;
     isAnimatingRef.current = true;
-    setGamePhase('animating');
-    setGameResult('won');
+    setGamePhase("animating");
+    setGameResult("won");
 
     // 1. Winner row: slide cards
-    setRowStates(prev => ({ ...prev, [winnerRowIndex]: 'sliding' }));
+    setRowStates((prev) => ({ ...prev, [winnerRowIndex]: "sliding" }));
     await delay(SLIDE_DURATION);
 
     // 2. Winner row: reveal category
-    setRowStates(prev => ({ ...prev, [winnerRowIndex]: 'revealed' }));
+    setRowStates((prev) => ({ ...prev, [winnerRowIndex]: "revealed" }));
     await delay(WIN_PAUSE);
 
     // 3. Reveal other rows sequentially (including locked ones)
-    const otherRows = [0, 1, 2, 3].filter(i => i !== winnerRowIndex);
+    const otherRows = [0, 1, 2, 3].filter((i) => i !== winnerRowIndex);
     for (const rowIdx of otherRows) {
-      setRowStates(prev => ({ ...prev, [rowIdx]: 'sliding' }));
+      setRowStates((prev) => ({ ...prev, [rowIdx]: "sliding" }));
       await delay(SLIDE_DURATION);
-      setRowStates(prev => ({ ...prev, [rowIdx]: 'revealed' }));
+      setRowStates((prev) => ({ ...prev, [rowIdx]: "revealed" }));
       await delay(CATEGORY_FADE_DURATION);
     }
 
@@ -335,25 +401,25 @@ export default function App() {
 
     // 5. Show meta overlay
     setShowMetaOverlay(true);
-    setGamePhase('ended');
+    setGamePhase("ended");
   }, []);
 
   const runLossSequence = useCallback(async (ultimateRowIndex: number) => {
     if (isAnimatingRef.current) return;
     isAnimatingRef.current = true;
-    setGamePhase('animating');
-    setGameResult('lost');
+    setGamePhase("animating");
+    setGameResult("lost");
 
     await delay(500);
 
     // Reveal all rows sequentially (including locked), ultimate winner last
-    const rowOrder = [0, 1, 2, 3].filter(i => i !== ultimateRowIndex);
+    const rowOrder = [0, 1, 2, 3].filter((i) => i !== ultimateRowIndex);
     rowOrder.push(ultimateRowIndex);
 
     for (const rowIdx of rowOrder) {
-      setRowStates(prev => ({ ...prev, [rowIdx]: 'sliding' }));
+      setRowStates((prev) => ({ ...prev, [rowIdx]: "sliding" }));
       await delay(SLIDE_DURATION);
-      setRowStates(prev => ({ ...prev, [rowIdx]: 'revealed' }));
+      setRowStates((prev) => ({ ...prev, [rowIdx]: "revealed" }));
       await delay(CATEGORY_FADE_DURATION);
     }
 
@@ -373,28 +439,30 @@ export default function App() {
 
     // Show meta overlay
     setShowMetaOverlay(true);
-    setGamePhase('ended');
+    setGamePhase("ended");
   }, []);
 
   // --- Game Logic ---
 
-  const allRowsSelected = gameData ? Object.keys(selections).length === 4 : false;
+  const allRowsSelected = gameData
+    ? Object.keys(selections).length === 4
+    : false;
 
   const handleCardClick = async (rowIndex: number, wordIndex: number) => {
-    if (gamePhase !== 'playing' || !gameData) return;
-    if (rowStates[rowIndex] !== 'interactive') return;
+    if (gamePhase !== "playing" || !gameData) return;
+    if (rowStates[rowIndex] !== "interactive") return;
     if (failedGuesses[rowIndex]?.has(wordIndex)) return;
 
     // --- PHASE 1: SELECTION ---
     if (!allRowsSelected) {
-      setSelections(prev => ({ ...prev, [rowIndex]: wordIndex }));
+      setSelections((prev) => ({ ...prev, [rowIndex]: wordIndex }));
       setFeedbackMessage(null);
       return;
     }
 
     // --- PHASE 2: VERDICT ---
     if (selections[rowIndex] !== wordIndex) {
-      setSelections(prev => ({ ...prev, [rowIndex]: wordIndex }));
+      setSelections((prev) => ({ ...prev, [rowIndex]: wordIndex }));
       setFeedbackMessage(null);
       return;
     }
@@ -407,15 +475,15 @@ export default function App() {
 
       if (isUltimate) {
         // WIN!
-        setScore(prev => [...prev, 'PURPLE' as ScoreType]);
+        setScore((prev) => [...prev, "PURPLE" as ScoreType]);
         await runWinSequence(rowIndex);
       } else {
         // Partial correct (Yellow lock) - lock the row but don't reveal yet
-        const newScore = [...score, 'YELLOW' as ScoreType];
+        const newScore = [...score, "YELLOW" as ScoreType];
         setScore(newScore);
-        setSolvedRows(prev => new Set([...prev, rowIndex]));
-        setRowStates(prev => ({ ...prev, [rowIndex]: 'locked' }));
-        setFeedbackMessage(newScore.length === 2 ? 'lastguess' : 'partial');
+        setSolvedRows((prev) => new Set([...prev, rowIndex]));
+        setRowStates((prev) => ({ ...prev, [rowIndex]: "locked" }));
+        setFeedbackMessage(newScore.length === 2 ? "lastguess" : "partial");
 
         if (newScore.length >= SCORE_LIMIT) {
           await runLossSequence(gameData.ultimateOutlierRowIndex);
@@ -423,17 +491,17 @@ export default function App() {
       }
     } else {
       // WRONG (Red)
-      const newScore = [...score, 'RED' as ScoreType];
+      const newScore = [...score, "RED" as ScoreType];
       setScore(newScore);
-      setFeedbackMessage(newScore.length === 2 ? 'lastguess' : 'wrong');
+      setFeedbackMessage(newScore.length === 2 ? "lastguess" : "wrong");
 
-      setFailedGuesses(prev => {
+      setFailedGuesses((prev) => {
         const rowSet = new Set(prev[rowIndex] || []);
         rowSet.add(wordIndex);
         return { ...prev, [rowIndex]: rowSet };
       });
 
-      setSelections(prev => {
+      setSelections((prev) => {
         const next = { ...prev };
         delete next[rowIndex];
         return next;
@@ -450,15 +518,22 @@ export default function App() {
   if (!gameData) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 dark:bg-stone-900 p-4 text-center">
-        <h2 className="text-xl font-bold mb-4 text-stone-900 dark:text-stone-100">Something went wrong.</h2>
-        <button onClick={initGame} className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-6 py-2 rounded-full">Retry</button>
+        <h2 className="text-xl font-bold mb-4 text-stone-900 dark:text-stone-100">
+          Something went wrong.
+        </h2>
+        <button
+          onClick={initGame}
+          className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-6 py-2 rounded-full"
+        >
+          Retry
+        </button>
       </div>
     );
   }
 
   const metaWords = gameData.rows
     .filter((_, idx) => idx !== gameData.ultimateOutlierRowIndex)
-    .map(r => r.words[r.outlierIndex].text);
+    .map((r) => r.words[r.outlierIndex].text);
 
   return (
     <div className="min-h-screen bg-stone-50 dark:bg-stone-900 flex flex-col items-center py-4 sm:py-8 px-3 sm:px-6 transition-colors duration-300">
@@ -477,8 +552,18 @@ export default function App() {
           aria-label="Random past puzzle"
           title="Random past puzzle"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
           </svg>
         </button>
         <div className="flex items-center gap-3">
@@ -488,12 +573,32 @@ export default function App() {
             aria-label="Toggle dark mode"
           >
             {darkMode ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+                />
               </svg>
             ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                />
               </svg>
             )}
           </button>
@@ -516,12 +621,15 @@ export default function App() {
           <div className="flex space-x-1">
             {[...Array(SCORE_LIMIT)].map((_, i) => {
               const item = score[i];
-              let colorClass = 'bg-stone-300';
-              if (item === 'RED') colorClass = 'bg-rose-500';
-              if (item === 'YELLOW') colorClass = 'bg-amber-400';
-              if (item === 'PURPLE') colorClass = 'bg-violet-500';
+              let colorClass = "bg-stone-300";
+              if (item === "RED") colorClass = "bg-rose-500";
+              if (item === "YELLOW") colorClass = "bg-amber-400";
+              if (item === "PURPLE") colorClass = "bg-violet-500";
               return (
-                <div key={i} className={`h-3 w-3 rounded-full transition-colors duration-300 ${colorClass}`} />
+                <div
+                  key={i}
+                  className={`h-3 w-3 rounded-full transition-colors duration-300 ${colorClass}`}
+                />
               );
             })}
           </div>
@@ -531,8 +639,12 @@ export default function App() {
       <div className="max-w-2xl w-full mb-4 sm:mb-6 text-center">
         {gameResult ? (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <h2 className={`text-xl sm:text-2xl font-serif font-bold mb-2 ${gameResult === 'won' ? 'text-emerald-500' : 'text-rose-500'}`}>
-              {gameResult === 'won' ? 'Victory!' : 'Game Over'}
+            <h2
+              className={`text-xl sm:text-2xl font-serif font-bold mb-2 ${
+                gameResult === "won" ? "text-emerald-500" : "text-rose-500"
+              }`}
+            >
+              {gameResult === "won" ? "Victory!" : "Game Over"}
             </h2>
             <p className="text-stone-700 dark:text-stone-300 font-medium max-w-lg mx-auto text-sm sm:text-base">
               {gameData.ultimateExplanation}
@@ -545,12 +657,24 @@ export default function App() {
             </button>
           </div>
         ) : (
-          <p className={`font-medium transition-colors duration-300 text-sm sm:text-base ${feedbackMessage === 'wrong' ? 'text-rose-500' : feedbackMessage === 'partial' ? 'text-amber-500' : feedbackMessage === 'lastguess' ? 'text-violet-500 font-bold' : allRowsSelected ? 'text-violet-500' : 'text-stone-600 dark:text-stone-400'}`}>
-            {feedbackMessage === 'wrong'
+          <p
+            className={`font-medium transition-colors duration-300 text-sm sm:text-base ${
+              feedbackMessage === "wrong"
+                ? "text-rose-500"
+                : feedbackMessage === "partial"
+                ? "text-amber-500"
+                : feedbackMessage === "lastguess"
+                ? "text-violet-500 font-bold"
+                : allRowsSelected
+                ? "text-violet-500"
+                : "text-stone-600 dark:text-stone-400"
+            }`}
+          >
+            {feedbackMessage === "wrong"
               ? "That one wasn't even Odd, try again"
-              : feedbackMessage === 'partial'
+              : feedbackMessage === "partial"
               ? "That's the Odd one out for this row, but not the Oddest one of them all."
-              : feedbackMessage === 'lastguess'
+              : feedbackMessage === "lastguess"
               ? "Last guess!"
               : !allRowsSelected
               ? "Select the outlier in each row"
@@ -559,7 +683,10 @@ export default function App() {
         )}
       </div>
 
-      <div className="max-w-2xl w-full relative" style={{ height: `calc(4 * (${rowHeight} + 1rem))` }}>
+      <div
+        className="max-w-2xl w-full relative"
+        style={{ height: `calc(4 * (${rowHeight} + 1rem))` }}
+      >
         {/* Game Rows */}
         {gameData.rows.map((row, rIdx) => {
           const visualIndex = visualRowOrder[rIdx];
@@ -573,7 +700,7 @@ export default function App() {
                 top: 0,
                 transform: `translateY(calc(${visualIndex} * (${rowHeight} + 1rem)))`,
                 transition: `transform ${ROW_REORDER_DURATION}ms cubic-bezier(0.4, 0, 0.2, 1)`,
-                zIndex: isWinner && showMetaOverlay ? 5 : 10
+                zIndex: isWinner && showMetaOverlay ? 5 : 10,
               }}
             >
               <div className="pb-4 h-[4.5rem] sm:h-20">
@@ -601,9 +728,9 @@ export default function App() {
             style={{
               top: 0,
               right: 0,
-              width: 'calc(25% - 0.375rem)',
+              width: "calc(25% - 0.375rem)",
               height: `calc(3 * (${rowHeight} + 1rem) - 1rem)`,
-              animation: 'fadeIn 800ms ease-out'
+              animation: "fadeIn 800ms ease-out",
             }}
           >
             <div className="w-full h-full bg-stone-100 dark:bg-stone-800 border-2 border-violet-500 rounded-md flex flex-col items-center justify-center text-center p-3 select-none">
@@ -611,8 +738,11 @@ export default function App() {
                 {gameData.metaCategory}
               </span>
               <div className="flex flex-col space-y-2">
-                {metaWords.map(word => (
-                  <span key={word} className="text-stone-600 dark:text-stone-400 uppercase text-[10px] sm:text-xs font-medium">
+                {metaWords.map((word) => (
+                  <span
+                    key={word}
+                    className="text-stone-600 dark:text-stone-400 uppercase text-[10px] sm:text-xs font-medium"
+                  >
                     {word}
                   </span>
                 ))}

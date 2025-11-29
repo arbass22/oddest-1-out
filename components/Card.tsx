@@ -1,5 +1,5 @@
 import React from 'react';
-import { CardState } from '../types';
+import { CardState } from '@/types';
 
 interface CardProps {
   text: string;

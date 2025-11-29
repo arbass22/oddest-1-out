@@ -1,6 +1,10 @@
 # Dependencies
 node_modules/
 
+# Next.js
+.next/
+out/
+
 # Build output
 dist/
 
@@ -24,8 +28,9 @@ Thumbs.db
 *.log
 npm-debug.log*
 
-# TypeScript cache
+# TypeScript
 *.tsbuildinfo
+next-env.d.ts
 
-# Vite
-.vite/
+# Vercel
+.vercel

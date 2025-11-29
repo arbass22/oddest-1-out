@@ -20,8 +20,11 @@ export interface GameData {
 
 export enum CardState {
   IDLE = 'IDLE',
-  SELECTED = 'SELECTED', // Yellow (Phase 1 selection)
-  CORRECT_ROW_WRONG_GAME = 'CORRECT_ROW_WRONG_GAME', // Blue (Phase 3 Partial)
+  SELECTED = 'SELECTED', // Light gray (Phase 1 selection)
+  SELECTED_PHASE2 = 'SELECTED_PHASE2', // Darker gray (Phase 2 - ready to guess)
+  LOCKED_OUTLIER = 'LOCKED_OUTLIER', // Yellow (correct row outlier, awaiting reveal)
+  LOCKED_OTHER = 'LOCKED_OTHER', // Grayed out (other cards in locked row)
+  CORRECT_ROW_WRONG_GAME = 'CORRECT_ROW_WRONG_GAME', // Blue (revealed partial)
   INACTIVE_ROW = 'INACTIVE_ROW', // Gray (Phase 3 Solved Row)
   WRONG = 'WRONG', // Red (Phase 3 Error)
   WIN = 'WIN', // Green (Phase 3 Win)
@@ -30,7 +33,7 @@ export enum CardState {
 export type GameStatus = 'loading' | 'playing' | 'won' | 'lost' | 'error';
 
 // Row display states for animation
-export type RowDisplayState = 'interactive' | 'sliding' | 'revealed';
+export type RowDisplayState = 'interactive' | 'locked' | 'sliding' | 'revealed';
 
 // Game phase for animation control
 export type GamePhase = 'playing' | 'animating' | 'ended';

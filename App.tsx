@@ -49,6 +49,7 @@ interface GameRowProps {
   failedIndices: Set<number>;
   gamePhase: GamePhase;
   isUltimateWinner: boolean;
+  isPhase2: boolean;
   onCardClick: (rIdx: number, wIdx: number) => void;
 }
 
@@ -60,6 +61,7 @@ const GameRow: React.FC<GameRowProps> = ({
   failedIndices,
   gamePhase,
   isUltimateWinner,
+  isPhase2,
   onCardClick
 }) => {
   const [gapSize, setGapSize] = useState('0.5rem');
@@ -99,9 +101,14 @@ const GameRow: React.FC<GameRowProps> = ({
     );
   }
 
-  // Get card state for interactive/sliding modes
+  // Get card state for interactive/sliding/locked modes
   const getCardState = (wIdx: number): CardState => {
     const isOutlier = wIdx === row.outlierIndex;
+
+    // Locked state: outlier is yellow, others are grayed out
+    if (displayState === 'locked') {
+      return isOutlier ? CardState.LOCKED_OUTLIER : CardState.LOCKED_OTHER;
+    }
 
     // During sliding, show the correct color for outlier
     if (displayState === 'sliding' && isOutlier) {
@@ -109,7 +116,7 @@ const GameRow: React.FC<GameRowProps> = ({
     }
 
     if (failedIndices.has(wIdx)) return CardState.WRONG;
-    if (selection === wIdx) return CardState.SELECTED;
+    if (selection === wIdx) return isPhase2 ? CardState.SELECTED_PHASE2 : CardState.SELECTED;
     return CardState.IDLE;
   };
 
@@ -220,13 +227,9 @@ export default function App() {
     setRowStates(prev => ({ ...prev, [winnerRowIndex]: 'revealed' }));
     await delay(WIN_PAUSE);
 
-    // 3. Reveal other rows sequentially (skip already revealed ones)
+    // 3. Reveal other rows sequentially (including locked ones)
     const otherRows = [0, 1, 2, 3].filter(i => i !== winnerRowIndex);
     for (const rowIdx of otherRows) {
-      // Check current state - skip if already revealed
-      const currentState = rowStates[rowIdx];
-      if (currentState === 'revealed') continue;
-
       setRowStates(prev => ({ ...prev, [rowIdx]: 'sliding' }));
       await delay(SLIDE_DURATION);
       setRowStates(prev => ({ ...prev, [rowIdx]: 'revealed' }));
@@ -250,7 +253,7 @@ export default function App() {
     // 5. Show meta overlay
     setShowMetaOverlay(true);
     setGamePhase('ended');
-  }, [rowStates]);
+  }, []);
 
   const runLossSequence = useCallback(async (ultimateRowIndex: number) => {
     if (isAnimatingRef.current) return;
@@ -260,14 +263,11 @@ export default function App() {
 
     await delay(500);
 
-    // Reveal all rows sequentially, ultimate winner last
+    // Reveal all rows sequentially (including locked), ultimate winner last
     const rowOrder = [0, 1, 2, 3].filter(i => i !== ultimateRowIndex);
     rowOrder.push(ultimateRowIndex);
 
     for (const rowIdx of rowOrder) {
-      // Skip already revealed rows
-      if (rowStates[rowIdx] === 'revealed') continue;
-
       setRowStates(prev => ({ ...prev, [rowIdx]: 'sliding' }));
       await delay(SLIDE_DURATION);
       setRowStates(prev => ({ ...prev, [rowIdx]: 'revealed' }));
@@ -291,13 +291,6 @@ export default function App() {
     // Show meta overlay
     setShowMetaOverlay(true);
     setGamePhase('ended');
-  }, [rowStates]);
-
-  const runBlueRowSequence = useCallback(async (rowIndex: number) => {
-    // Single row reveal for partial correct
-    setRowStates(prev => ({ ...prev, [rowIndex]: 'sliding' }));
-    await delay(SLIDE_DURATION);
-    setRowStates(prev => ({ ...prev, [rowIndex]: 'revealed' }));
   }, []);
 
   // --- Game Logic ---
@@ -331,14 +324,13 @@ export default function App() {
         // WIN!
         await runWinSequence(rowIndex);
       } else {
-        // Partial correct (Blue strike)
+        // Partial correct (Yellow lock) - lock the row but don't reveal yet
         const newStrikes = [...strikes, 'BLUE' as StrikeType];
         setStrikes(newStrikes);
+        setRowStates(prev => ({ ...prev, [rowIndex]: 'locked' }));
 
         if (newStrikes.length >= STRIKE_LIMIT) {
           await runLossSequence(gameData.ultimateOutlierRowIndex);
-        } else {
-          await runBlueRowSequence(rowIndex);
         }
       }
     } else {
@@ -459,6 +451,7 @@ export default function App() {
                   failedIndices={failedGuesses[rIdx] || new Set()}
                   gamePhase={gamePhase}
                   isUltimateWinner={isWinner}
+                  isPhase2={allRowsSelected}
                   onCardClick={handleCardClick}
                 />
               </div>

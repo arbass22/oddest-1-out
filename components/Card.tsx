@@ -26,7 +26,13 @@ const Card: React.FC<CardProps> = ({ text, state, onClick, disabled, style, clas
       case CardState.WRONG:
         return "bg-red-500 border-red-600 text-white animate-shake z-10";
       case CardState.SELECTED:
-        return "bg-yellow-200 border-yellow-400 text-yellow-900 shadow-inner";
+        return "bg-gray-200 border-gray-300 text-gray-600 shadow-inner";
+      case CardState.SELECTED_PHASE2:
+        return "bg-gray-400 border-gray-500 text-gray-900 shadow-md cursor-pointer";
+      case CardState.LOCKED_OUTLIER:
+        return "bg-yellow-300 border-yellow-400 text-yellow-900 shadow-md";
+      case CardState.LOCKED_OTHER:
+        return "bg-gray-200 border-gray-300 text-gray-400 cursor-not-allowed";
       case CardState.IDLE:
       default:
         return "bg-white border-gray-300 text-gray-800 hover:bg-gray-50 cursor-pointer hover:shadow-sm";

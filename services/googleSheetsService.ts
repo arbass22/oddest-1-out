@@ -3,6 +3,49 @@ import { GameData, WordItem } from '../types';
 const SHEET_ID = '1On5skhllTetpU-ERJkmIWl0lmQzARmMyO4yiQP-637k';
 const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
 
+// Puzzle with associated date from the sheet
+export interface PuzzleWithDate {
+  puzzle: GameData;
+  date: Date;
+}
+
+// Parse date string from Google Sheets (format: "M/D/YYYY" or Date serial)
+const parseSheetDate = (dateValue: string): Date | null => {
+  if (!dateValue) return null;
+
+  // Try parsing as "M/D/YYYY" format
+  const parts = dateValue.split('/');
+  if (parts.length === 3) {
+    const month = parseInt(parts[0], 10) - 1; // JS months are 0-indexed
+    const day = parseInt(parts[1], 10);
+    const year = parseInt(parts[2], 10);
+    if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
+      return new Date(year, month, day);
+    }
+  }
+
+  // Try parsing as a date string
+  const parsed = new Date(dateValue);
+  if (!isNaN(parsed.getTime())) {
+    return parsed;
+  }
+
+  return null;
+};
+
+// Compare two dates ignoring time (just year/month/day)
+export const isSameDay = (d1: Date, d2: Date): boolean => {
+  return d1.getFullYear() === d2.getFullYear() &&
+         d1.getMonth() === d2.getMonth() &&
+         d1.getDate() === d2.getDate();
+};
+
+export const isBeforeDay = (d1: Date, d2: Date): boolean => {
+  const d1Start = new Date(d1.getFullYear(), d1.getMonth(), d1.getDate());
+  const d2Start = new Date(d2.getFullYear(), d2.getMonth(), d2.getDate());
+  return d1Start < d2Start;
+};
+
 // Fisher-Yates shuffle
 function shuffleArray<T>(array: T[]): T[] {
   const newArray = [...array];
@@ -57,7 +100,7 @@ interface SheetData {
  * - Row 20: Category 4 name
  * - Row 21: Meta category name
  */
-export const fetchPuzzlesFromSheet = async (): Promise<GameData[]> => {
+export const fetchPuzzlesFromSheet = async (): Promise<PuzzleWithDate[]> => {
   const response = await fetch(SHEET_URL);
   const text = await response.text();
 
@@ -70,7 +113,7 @@ export const fetchPuzzlesFromSheet = async (): Promise<GameData[]> => {
   const data: SheetData = JSON.parse(match[1]);
 
   const sheetRows = data.table.rows;
-  const puzzles: GameData[] = [];
+  const puzzles: PuzzleWithDate[] = [];
 
   // Get number of puzzle columns (skip column A which has labels)
   const numColumns = data.table.cols.length;
@@ -83,8 +126,12 @@ export const fetchPuzzlesFromSheet = async (): Promise<GameData[]> => {
     };
 
     // Skip empty columns
-    const date = getCellValue(0);
-    if (!date) continue;
+    const dateStr = getCellValue(0);
+    if (!dateStr) continue;
+
+    // Parse the date
+    const puzzleDate = parseSheetDate(dateStr);
+    if (!puzzleDate) continue;
 
     // Extract category words (rows 1-16 in sheet = indices 1-16)
     // Word 4 of each category (index 3) is always the outlier
@@ -136,22 +183,9 @@ export const fetchPuzzlesFromSheet = async (): Promise<GameData[]> => {
       ultimateExplanation: `${category1Words[3]}, ${category2Words[3]}, and ${category3Words[3]} are all ${metaCategory.toLowerCase()}. ${category4Words[3]} is the Ultimate Oddest1Out.`
     };
 
-    puzzles.push(gameData);
+    puzzles.push({ puzzle: gameData, date: puzzleDate });
   }
 
   return puzzles;
 };
 
-/**
- * Fetches puzzles and returns a random one
- */
-export const getRandomPuzzleFromSheet = async (): Promise<GameData> => {
-  const puzzles = await fetchPuzzlesFromSheet();
-
-  if (puzzles.length === 0) {
-    throw new Error('No puzzles found in sheet');
-  }
-
-  const index = Math.floor(Math.random() * puzzles.length);
-  return puzzles[index];
-};

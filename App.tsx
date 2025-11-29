@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { getRandomPuzzle } from './data/puzzles';
+import { getTodaysPuzzle, getRandomPastPuzzle } from './data/puzzles';
 import { GameData, CardState, GameStatus, GameRow as GameRowType, RowDisplayState, GamePhase } from './types';
 import Card from './components/Card';
 
@@ -262,7 +262,7 @@ export default function App() {
   // Track if animation is running to prevent double triggers
   const isAnimatingRef = useRef(false);
 
-  const initGame = useCallback(async () => {
+  const resetGameState = useCallback(() => {
     setSelections({});
     setRowStates({ 0: 'interactive', 1: 'interactive', 2: 'interactive', 3: 'interactive' });
     setScore([]);
@@ -274,9 +274,21 @@ export default function App() {
     setGamePhase('playing');
     setGameResult(null);
     isAnimatingRef.current = false;
-    const data = await getRandomPuzzle();
-    setGameData(data);
   }, []);
+
+  // Load today's puzzle (used on initial page load)
+  const initGame = useCallback(async () => {
+    resetGameState();
+    const data = await getTodaysPuzzle();
+    setGameData(data);
+  }, [resetGameState]);
+
+  // Load a random past puzzle (used when clicking shuffle button)
+  const loadRandomPastPuzzle = useCallback(async () => {
+    resetGameState();
+    const data = await getRandomPastPuzzle();
+    setGameData(data);
+  }, [resetGameState]);
 
   useEffect(() => {
     initGame();
@@ -460,10 +472,10 @@ export default function App() {
       {/* Navbar */}
       <nav className="w-full max-w-2xl flex items-center justify-between mb-4 sm:mb-6">
         <button
-          onClick={initGame}
+          onClick={loadRandomPastPuzzle}
           className="p-2 text-stone-700 dark:text-stone-300 hover:text-violet-500 transition-colors"
-          aria-label="New puzzle"
-          title="New puzzle"
+          aria-label="Random past puzzle"
+          title="Random past puzzle"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -499,9 +511,6 @@ export default function App() {
         <h1 className="font-serif text-4xl sm:text-5xl font-bold text-stone-900 dark:text-stone-100 tracking-tight">
           Oddest<span className="text-violet-500">1</span>Out
         </h1>
-        <p className="text-stone-500 dark:text-stone-400 text-base sm:text-lg mt-1">
-          {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-        </p>
         <div className="flex items-center space-x-2 text-xs sm:text-sm text-stone-500 dark:text-stone-400 uppercase tracking-widest font-semibold mt-3">
           <span>Score:</span>
           <div className="flex space-x-1">

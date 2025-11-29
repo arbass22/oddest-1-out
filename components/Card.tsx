@@ -22,22 +22,22 @@ const Card: React.FC<CardProps> = ({ text, state, onClick, disabled, style, clas
       case CardState.CORRECT_ROW_WRONG_GAME:
         return "bg-sky-500 border-sky-600 text-white shadow-md";
       case CardState.INACTIVE_ROW:
-        return "bg-stone-200 border-stone-300 text-stone-400 cursor-not-allowed";
+        return "bg-stone-200 dark:bg-stone-700 border-stone-300 dark:border-stone-600 text-stone-400 cursor-not-allowed";
       case CardState.WRONG:
         return "bg-rose-500 border-rose-600 text-white animate-shake z-10";
       case CardState.SELECTED:
-        return "bg-white border-2 border-violet-500 text-stone-800";
+        return "bg-white dark:bg-stone-800 border-2 border-violet-500 text-stone-800 dark:text-stone-100";
       case CardState.SELECTED_PHASE2:
-        return "bg-violet-100 border-2 border-violet-500 text-stone-800 cursor-pointer";
+        return "bg-violet-100 dark:bg-violet-900/50 border-2 border-violet-500 text-stone-800 dark:text-stone-100 cursor-pointer";
       case CardState.LOCKED_OUTLIER:
-        return "bg-amber-300 border-amber-400 text-amber-900 shadow-md";
+        return "bg-amber-300 dark:bg-amber-500 border-amber-400 dark:border-amber-600 text-amber-900 dark:text-amber-100 shadow-md";
       case CardState.LOCKED_OTHER:
-        return "bg-stone-200 border-stone-300 text-stone-400 cursor-not-allowed";
+        return "bg-stone-200 dark:bg-stone-700 border-stone-300 dark:border-stone-600 text-stone-400 cursor-not-allowed";
       case CardState.ULTIMATE_WINNER:
         return "bg-violet-500 border-violet-600 text-white shadow-lg";
       case CardState.IDLE:
       default:
-        return "bg-white border-stone-300 text-stone-800 hover:bg-stone-50 cursor-pointer hover:shadow-sm";
+        return "bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-600 text-stone-800 dark:text-stone-100 hover:bg-stone-50 dark:hover:bg-stone-700 cursor-pointer hover:shadow-sm";
     }
   };
 

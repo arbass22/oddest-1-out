@@ -12,7 +12,7 @@ interface CardProps {
 
 const Card: React.FC<CardProps> = ({ text, state, onClick, disabled, style, className = '' }) => {
   const getBaseClasses = () => {
-    return "h-16 w-full flex items-center justify-center font-bold text-sm sm:text-base uppercase tracking-wider rounded-md transition-all duration-300 border-2 select-none";
+    return "h-14 sm:h-16 w-full flex items-center justify-center font-bold text-xs sm:text-sm uppercase tracking-wider rounded-md transition-all duration-300 border-2 select-none px-1";
   };
 
   const getStateClasses = () => {

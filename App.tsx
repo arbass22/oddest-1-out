@@ -24,7 +24,7 @@ interface CategoryCardProps {
 const CategoryCard: React.FC<CategoryCardProps> = ({ category, words }) => {
   return (
     <div
-      className="col-span-3 h-16 bg-gray-100 border-gray-200 border-2 rounded-md flex flex-col items-center justify-center shadow-sm px-2 text-center select-none"
+      className="col-span-3 h-14 sm:h-16 bg-gray-100 border-gray-200 border-2 rounded-md flex flex-col items-center justify-center shadow-sm px-2 text-center select-none"
       style={{ animation: 'fadeIn 600ms ease-out' }}
     >
       <span className="font-bold text-gray-900 uppercase text-xs sm:text-sm tracking-widest leading-tight mb-0.5">
@@ -90,7 +90,7 @@ const GameRow: React.FC<GameRowProps> = ({
     }
 
     return (
-      <div className="grid grid-cols-4 gap-2 sm:gap-4 h-16">
+      <div className="grid grid-cols-4 gap-2 sm:gap-4 h-14 sm:h-16">
         <CategoryCard
           category={row.category}
           words={nonOutlierWords}
@@ -162,7 +162,7 @@ const GameRow: React.FC<GameRowProps> = ({
 
   // INTERACTIVE or SLIDING: Show all 4 cards
   return (
-    <div className="grid grid-cols-4 gap-2 sm:gap-4 h-16">
+    <div className="grid grid-cols-4 gap-2 sm:gap-4 h-14 sm:h-16">
       {row.words.map((word, wIdx) => (
         <Card
           key={word.id}
@@ -182,14 +182,14 @@ const GameRow: React.FC<GameRowProps> = ({
 const InfoModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
   <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
     <div
-      className="bg-white rounded-lg shadow-2xl max-w-md w-full p-6 text-left"
+      className="bg-white rounded-lg shadow-2xl max-w-md w-full p-4 sm:p-6 text-left"
       onClick={e => e.stopPropagation()}
     >
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-serif font-bold text-gray-900">How to Play</h2>
+        <h2 className="text-lg sm:text-xl font-serif font-bold text-gray-900">How to Play</h2>
         <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
       </div>
-      <div className="space-y-4 text-gray-700 text-sm">
+      <div className="space-y-3 sm:space-y-4 text-gray-700 text-xs sm:text-sm">
         <div>
           <h3 className="font-bold text-gray-900 mb-1">Goal</h3>
           <p>Find the <span className="text-purple-600 font-semibold">Oddest1Out</span> — the outlier among outliers.</p>
@@ -219,6 +219,16 @@ export default function App() {
   const [gamePhase, setGamePhase] = useState<GamePhase>('playing');
   const [gameResult, setGameResult] = useState<'won' | 'lost' | null>(null);
   const [showInfo, setShowInfo] = useState(false);
+  const [rowHeight, setRowHeight] = useState('4rem');
+
+  useEffect(() => {
+    const updateRowHeight = () => {
+      setRowHeight(window.innerWidth >= 640 ? '4rem' : '3.5rem');
+    };
+    updateRowHeight();
+    window.addEventListener('resize', updateRowHeight);
+    return () => window.removeEventListener('resize', updateRowHeight);
+  }, []);
 
   const [selections, setSelections] = useState<Record<number, number>>({});
   const [rowStates, setRowStates] = useState<Record<number, RowDisplayState>>({
@@ -423,7 +433,7 @@ export default function App() {
     .map(r => r.words[r.outlierIndex].text);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-8 px-4 sm:px-6">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-4 sm:py-8 px-3 sm:px-6">
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: scale(0.95); }
@@ -431,20 +441,33 @@ export default function App() {
         }
       `}</style>
 
-      <header className="max-w-2xl w-full flex flex-col items-center mb-8">
-        <div className="flex items-center gap-2 mb-2">
-          <h1 className="font-serif text-4xl font-bold text-gray-900 tracking-tight">
-            Oddest<span className="text-purple-500">1</span>Out
-          </h1>
-          <button
-            onClick={() => setShowInfo(true)}
-            className="w-6 h-6 rounded-full border-2 border-gray-400 text-gray-400 hover:border-purple-500 hover:text-purple-500 transition-colors text-sm font-bold flex items-center justify-center"
-            aria-label="How to play"
-          >
-            ?
-          </button>
-        </div>
-        <div className="flex items-center space-x-2 text-sm text-gray-500 uppercase tracking-widest font-semibold">
+      {/* Navbar */}
+      <nav className="w-full max-w-2xl flex items-center justify-between mb-4 sm:mb-6">
+        <button
+          className="p-2 text-gray-700 hover:text-gray-900 transition-colors"
+          aria-label="Menu"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <button
+          onClick={() => setShowInfo(true)}
+          className="w-7 h-7 rounded-full border-2 border-gray-400 text-gray-400 hover:border-purple-500 hover:text-purple-500 transition-colors text-sm font-bold flex items-center justify-center"
+          aria-label="How to play"
+        >
+          ?
+        </button>
+      </nav>
+
+      <header className="max-w-2xl w-full flex flex-col items-center mb-4 sm:mb-6">
+        <h1 className="font-serif text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+          Oddest<span className="text-purple-500">1</span>Out
+        </h1>
+        <p className="text-gray-500 text-sm sm:text-base mt-1">
+          {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+        </p>
+        <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-500 uppercase tracking-widest font-semibold mt-3">
           <span>Score:</span>
           <div className="flex space-x-1">
             {[...Array(SCORE_LIMIT)].map((_, i) => {
@@ -461,13 +484,13 @@ export default function App() {
         </div>
       </header>
 
-      <div className="max-w-2xl w-full mb-6 text-center">
+      <div className="max-w-2xl w-full mb-4 sm:mb-6 text-center">
         {gameResult ? (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <h2 className={`text-2xl font-serif font-bold mb-2 ${gameResult === 'won' ? 'text-green-600' : 'text-red-600'}`}>
+            <h2 className={`text-xl sm:text-2xl font-serif font-bold mb-2 ${gameResult === 'won' ? 'text-green-600' : 'text-red-600'}`}>
               {gameResult === 'won' ? 'Victory!' : 'Game Over'}
             </h2>
-            <p className="text-gray-700 font-medium max-w-lg mx-auto">
+            <p className="text-gray-700 font-medium max-w-lg mx-auto text-sm sm:text-base">
               {gameData.ultimateExplanation}
             </p>
             <button
@@ -478,7 +501,7 @@ export default function App() {
             </button>
           </div>
         ) : (
-          <p className={`font-medium transition-colors duration-300 ${feedbackMessage === 'wrong' ? 'text-red-500' : feedbackMessage === 'partial' ? 'text-yellow-600' : feedbackMessage === 'lastguess' ? 'text-purple-600 font-bold' : allRowsSelected ? 'text-purple-600' : 'text-gray-600'}`}>
+          <p className={`font-medium transition-colors duration-300 text-sm sm:text-base ${feedbackMessage === 'wrong' ? 'text-red-500' : feedbackMessage === 'partial' ? 'text-yellow-600' : feedbackMessage === 'lastguess' ? 'text-purple-600 font-bold' : allRowsSelected ? 'text-purple-600' : 'text-gray-600'}`}>
             {feedbackMessage === 'wrong'
               ? "That one wasn't even Odd, try again"
               : feedbackMessage === 'partial'
@@ -492,7 +515,7 @@ export default function App() {
         )}
       </div>
 
-      <div className="max-w-2xl w-full relative" style={{ height: 'calc(4 * (4rem + 1rem))' }}>
+      <div className="max-w-2xl w-full relative" style={{ height: `calc(4 * (${rowHeight} + 1rem))` }}>
         {/* Game Rows */}
         {gameData.rows.map((row, rIdx) => {
           const visualIndex = visualRowOrder[rIdx];
@@ -504,12 +527,12 @@ export default function App() {
               className="absolute w-full"
               style={{
                 top: 0,
-                transform: `translateY(calc(${visualIndex} * (4rem + 1rem)))`,
+                transform: `translateY(calc(${visualIndex} * (${rowHeight} + 1rem)))`,
                 transition: `transform ${ROW_REORDER_DURATION}ms cubic-bezier(0.4, 0, 0.2, 1)`,
                 zIndex: isWinner && showMetaOverlay ? 5 : 10
               }}
             >
-              <div className="pb-4 h-20">
+              <div className="pb-4 h-[4.5rem] sm:h-20">
                 <GameRow
                   row={row}
                   rowIndex={rIdx}
@@ -535,7 +558,7 @@ export default function App() {
               top: 0,
               right: 0,
               width: 'calc(25% - 0.375rem)',
-              height: 'calc(3 * (4rem + 1rem) - 1rem)',
+              height: `calc(3 * (${rowHeight} + 1rem) - 1rem)`,
               animation: 'fadeIn 800ms ease-out'
             }}
           >

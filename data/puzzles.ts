@@ -12,36 +12,36 @@ export const puzzles: GameData[] = [
     rows: [
       {
         id: 'row-0',
-        category: 'Citrus Fruits',
-        words: createWords(['Orange', 'Lemon', 'Lime', 'Mango'], 0),
+        category: 'Planets',
+        words: createWords(['Mars', 'Venus', 'Jupiter', 'Apollo'], 0),
         outlierIndex: 3,
-        explanation: 'Mango is a tropical stone fruit, not a citrus fruit.'
+        explanation: 'Apollo is a NASA program, not a planet.'
       },
       {
         id: 'row-1',
-        category: 'Card Games',
-        words: createWords(['Poker', 'Blackjack', 'Chess', 'Bridge'], 1),
+        category: 'Greek Gods',
+        words: createWords(['Zeus', 'Athena', 'Gemini', 'Poseidon'], 1),
         outlierIndex: 2,
-        explanation: 'Chess is a board game, not a card game.'
+        explanation: 'Gemini is a zodiac constellation, not a Greek god.'
       },
       {
         id: 'row-2',
-        category: 'Greek Letters',
-        words: createWords(['Alpha', 'Beta', 'Delta', 'Omega'], 2),
-        outlierIndex: 3,
-        explanation: 'Omega is the last Greek letter; the others are among the first four.'
+        category: 'Card Games',
+        words: createWords(['Poker', 'Blackjack', 'Solitaire', 'Bridge'], 2),
+        outlierIndex: 2,
+        explanation: 'Solitaire is a single-player game, not a multiplayer card game.'
       },
       {
         id: 'row-3',
-        category: 'Precious Metals',
-        words: createWords(['Gold', 'Silver', 'Platinum', 'Bronze'], 3),
-        outlierIndex: 3,
-        explanation: 'Bronze is an alloy, not a precious metal.'
+        category: 'Zodiac Signs',
+        words: createWords(['Aries', 'Leo', 'Mercury', 'Scorpio'], 3),
+        outlierIndex: 2,
+        explanation: 'Mercury is a planet, not a zodiac sign.'
       }
     ],
-    metaCategory: 'Olympic Medal/Award Tiers',
+    metaCategory: 'NASA Space Programs',
     ultimateOutlierRowIndex: 2,
-    ultimateExplanation: 'Mango, Chess, and Bronze are all associated with Olympic medals or rankings (Gold, Silver, Bronze for medals; Chess is an Olympic-recognized sport). Omega (watches) is a sponsor, but the letter itself has no Olympic connection — it\'s the Ultimate Odd1Out.'
+    ultimateExplanation: 'Apollo, Gemini, and Mercury are all NASA space programs. Solitaire is a card game with no space connection — it\'s the Ultimate Odd1Out.'
   }
 ];
 

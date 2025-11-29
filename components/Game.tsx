@@ -306,6 +306,13 @@ export default function Game() {
           from { opacity: 0; transform: scale(0.95); }
           to { opacity: 1; transform: scale(1); }
         }
+        @keyframes textPop {
+          0% { opacity: 0; transform: translateY(-8px) scale(0.96); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-text-pop {
+          animation: textPop 300ms ease-out forwards;
+        }
       `}</style>
 
       {/* Navbar */}
@@ -479,7 +486,8 @@ export default function Game() {
           </div>
         ) : (
           <p
-            className={`font-medium transition-colors duration-300 text-sm sm:text-base ${
+            key={`${feedbackMessage}-${allRowsSelected}`}
+            className={`font-medium text-sm sm:text-base animate-text-pop ${
               feedbackMessage === "wrong"
                 ? "text-rose-500"
                 : feedbackMessage === "partial"

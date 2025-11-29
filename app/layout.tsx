@@ -1,21 +1,35 @@
-import type { Metadata } from 'next'
-import Script from 'next/script'
-import './globals.css'
+import type { Metadata } from "next";
+import Script from "next/script";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'Odd1Out',
-  description: 'Find the oddest one out!',
-}
+  title: "Oddest1Out",
+  description: "A new word game challenging you to find the ultimate outlier!",
+  openGraph: {
+    title: "Oddest1Out",
+    description: "A new word game challenging you to find the ultimate outlier!",
+    type: "website",
+    siteName: "Oddest1Out",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Oddest1Out",
+    description: "A new word game challenging you to find the ultimate outlier!",
+  },
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en">
       <head>
-        <link href="https://fonts.googleapis.com/css2?family=Aleo:wght@400;500;700&display=swap" rel="stylesheet" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Aleo:wght@400;500;700&display=swap"
+          rel="stylesheet"
+        />
       </head>
       <body>
         {/* Google Analytics */}
@@ -34,5 +48,5 @@ export default function RootLayout({
         {children}
       </body>
     </html>
-  )
+  );
 }

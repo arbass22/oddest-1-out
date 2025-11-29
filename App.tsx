@@ -3,8 +3,8 @@ import { getRandomPuzzle } from './data/puzzles';
 import { GameData, CardState, GameStatus, GameRow as GameRowType, RowDisplayState, GamePhase } from './types';
 import Card from './components/Card';
 
-const STRIKE_LIMIT = 3;
-type StrikeType = 'RED' | 'BLUE';
+const SCORE_LIMIT = 3;
+type ScoreType = 'RED' | 'YELLOW' | 'PURPLE';
 
 // Animation timing constants
 const SLIDE_DURATION = 800;
@@ -228,10 +228,10 @@ export default function App() {
   const [visualRowOrder, setVisualRowOrder] = useState<number[]>([0, 1, 2, 3]);
   const [showMetaOverlay, setShowMetaOverlay] = useState(false);
 
-  const [strikes, setStrikes] = useState<StrikeType[]>([]);
+  const [score, setScore] = useState<ScoreType[]>([]);
   const [failedGuesses, setFailedGuesses] = useState<Record<number, Set<number>>>({});
   const [solvedRows, setSolvedRows] = useState<Set<number>>(new Set());
-  const [feedbackMessage, setFeedbackMessage] = useState<'wrong' | 'partial' | null>(null);
+  const [feedbackMessage, setFeedbackMessage] = useState<'wrong' | 'partial' | 'lastguess' | null>(null);
 
   // Track if animation is running to prevent double triggers
   const isAnimatingRef = useRef(false);
@@ -239,7 +239,7 @@ export default function App() {
   const initGame = useCallback(() => {
     setSelections({});
     setRowStates({ 0: 'interactive', 1: 'interactive', 2: 'interactive', 3: 'interactive' });
-    setStrikes([]);
+    setScore([]);
     setFailedGuesses({});
     setSolvedRows(new Set());
     setFeedbackMessage(null);
@@ -369,24 +369,25 @@ export default function App() {
 
       if (isUltimate) {
         // WIN!
+        setScore(prev => [...prev, 'PURPLE' as ScoreType]);
         await runWinSequence(rowIndex);
       } else {
         // Partial correct (Yellow lock) - lock the row but don't reveal yet
-        const newStrikes = [...strikes, 'BLUE' as StrikeType];
-        setStrikes(newStrikes);
+        const newScore = [...score, 'YELLOW' as ScoreType];
+        setScore(newScore);
         setSolvedRows(prev => new Set([...prev, rowIndex]));
         setRowStates(prev => ({ ...prev, [rowIndex]: 'locked' }));
-        setFeedbackMessage('partial');
+        setFeedbackMessage(newScore.length === 2 ? 'lastguess' : 'partial');
 
-        if (newStrikes.length >= STRIKE_LIMIT) {
+        if (newScore.length >= SCORE_LIMIT) {
           await runLossSequence(gameData.ultimateOutlierRowIndex);
         }
       }
     } else {
-      // WRONG (Red strike)
-      const newStrikes = [...strikes, 'RED' as StrikeType];
-      setStrikes(newStrikes);
-      setFeedbackMessage('wrong');
+      // WRONG (Red)
+      const newScore = [...score, 'RED' as ScoreType];
+      setScore(newScore);
+      setFeedbackMessage(newScore.length === 2 ? 'lastguess' : 'wrong');
 
       setFailedGuesses(prev => {
         const rowSet = new Set(prev[rowIndex] || []);
@@ -400,7 +401,7 @@ export default function App() {
         return next;
       });
 
-      if (newStrikes.length >= STRIKE_LIMIT) {
+      if (newScore.length >= SCORE_LIMIT) {
         await runLossSequence(gameData.ultimateOutlierRowIndex);
       }
     }
@@ -444,13 +445,14 @@ export default function App() {
           </button>
         </div>
         <div className="flex items-center space-x-2 text-sm text-gray-500 uppercase tracking-widest font-semibold">
-          <span>Strikes:</span>
+          <span>Score:</span>
           <div className="flex space-x-1">
-            {[...Array(STRIKE_LIMIT)].map((_, i) => {
-              const strike = strikes[i];
+            {[...Array(SCORE_LIMIT)].map((_, i) => {
+              const item = score[i];
               let colorClass = 'bg-gray-300';
-              if (strike === 'RED') colorClass = 'bg-red-500';
-              if (strike === 'BLUE') colorClass = 'bg-blue-500';
+              if (item === 'RED') colorClass = 'bg-red-500';
+              if (item === 'YELLOW') colorClass = 'bg-yellow-400';
+              if (item === 'PURPLE') colorClass = 'bg-purple-500';
               return (
                 <div key={i} className={`h-3 w-3 rounded-full transition-colors duration-300 ${colorClass}`} />
               );
@@ -476,11 +478,13 @@ export default function App() {
             </button>
           </div>
         ) : (
-          <p className={`font-medium transition-colors duration-300 ${feedbackMessage === 'wrong' ? 'text-red-500' : feedbackMessage === 'partial' ? 'text-yellow-600' : allRowsSelected ? 'text-purple-600' : 'text-gray-600'}`}>
+          <p className={`font-medium transition-colors duration-300 ${feedbackMessage === 'wrong' ? 'text-red-500' : feedbackMessage === 'partial' ? 'text-yellow-600' : feedbackMessage === 'lastguess' ? 'text-purple-600 font-bold' : allRowsSelected ? 'text-purple-600' : 'text-gray-600'}`}>
             {feedbackMessage === 'wrong'
               ? "That one wasn't even Odd, try again"
               : feedbackMessage === 'partial'
               ? "That's the Odd one out for this row, but not the Oddest one of them all."
+              : feedbackMessage === 'lastguess'
+              ? "Last guess!"
               : !allRowsSelected
               ? "Select the outlier in each row"
               : "Find the Oddest1Out among your selections"}

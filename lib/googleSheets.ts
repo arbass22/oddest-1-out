@@ -1,4 +1,4 @@
-import { GameData, WordItem } from '../types';
+import { GameData, WordItem } from '@/types';
 
 const SHEET_ID = '1On5skhllTetpU-ERJkmIWl0lmQzARmMyO4yiQP-637k';
 const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
@@ -86,6 +86,55 @@ interface SheetData {
   };
 }
 
+// Helper to create WordItems with unique IDs
+const createWords = (texts: string[], rowIndex: number): WordItem[] =>
+  texts.map((text, idx) => ({
+    text,
+    id: `row-${rowIndex}-word-${idx}`
+  }));
+
+// Fallback puzzle in case sheet fetch fails
+const fallbackPuzzle: GameData = {
+  rows: [
+    {
+      id: 'row-0',
+      category: 'Planets',
+      words: createWords(['Mars', 'Venus', 'Jupiter', 'Apollo'], 0),
+      outlierIndex: 3,
+      explanation: 'Apollo is a NASA program, not a planet.'
+    },
+    {
+      id: 'row-1',
+      category: 'Greek Gods',
+      words: createWords(['Zeus', 'Athena', 'Gemini', 'Poseidon'], 1),
+      outlierIndex: 2,
+      explanation: 'Gemini is a zodiac constellation, not a Greek god.'
+    },
+    {
+      id: 'row-2',
+      category: 'Card Games',
+      words: createWords(['Poker', 'Blackjack', 'Solitaire', 'Bridge'], 2),
+      outlierIndex: 2,
+      explanation: 'Solitaire is a single-player game, not a multiplayer card game.'
+    },
+    {
+      id: 'row-3',
+      category: 'Zodiac Signs',
+      words: createWords(['Aries', 'Leo', 'Mercury', 'Scorpio'], 3),
+      outlierIndex: 2,
+      explanation: 'Mercury is a planet, not a zodiac sign.'
+    }
+  ],
+  metaCategory: 'NASA Space Programs',
+  ultimateOutlierRowIndex: 2,
+  ultimateExplanation: 'Apollo, Gemini, and Mercury are all NASA space programs. Solitaire is a card game with no space connection — it\'s the Ultimate Odd1Out.'
+};
+
+// Server-side cache for puzzles (revalidates every 5 minutes)
+let cachedPuzzles: PuzzleWithDate[] | null = null;
+let cacheTimestamp: number = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 /**
  * Fetches and parses the Google Sheet data
  * Sheet structure:
@@ -101,6 +150,11 @@ interface SheetData {
  * - Row 21: Meta category name
  */
 export const fetchPuzzlesFromSheet = async (): Promise<PuzzleWithDate[]> => {
+  // Return cached if still valid
+  if (cachedPuzzles && Date.now() - cacheTimestamp < CACHE_TTL) {
+    return cachedPuzzles;
+  }
+
   const response = await fetch(SHEET_URL);
   const text = await response.text();
 
@@ -186,6 +240,78 @@ export const fetchPuzzlesFromSheet = async (): Promise<PuzzleWithDate[]> => {
     puzzles.push({ puzzle: gameData, date: puzzleDate });
   }
 
+  // Update cache
+  cachedPuzzles = puzzles;
+  cacheTimestamp = Date.now();
+
   return puzzles;
 };
 
+/**
+ * Get today's puzzle (matching current date)
+ * Falls back to most recent past puzzle if no puzzle for today
+ */
+export const getTodaysPuzzle = async (): Promise<{ puzzle: GameData; date: string }> => {
+  try {
+    const puzzles = await fetchPuzzlesFromSheet();
+
+    if (puzzles.length === 0) {
+      console.warn('No puzzles in sheet, using fallback');
+      return { puzzle: fallbackPuzzle, date: new Date().toISOString() };
+    }
+
+    const today = new Date();
+
+    // Find puzzle for today
+    const todaysPuzzle = puzzles.find(p => isSameDay(p.date, today));
+    if (todaysPuzzle) {
+      return { puzzle: todaysPuzzle.puzzle, date: todaysPuzzle.date.toISOString() };
+    }
+
+    // Fallback: find most recent past puzzle
+    const pastPuzzles = puzzles.filter(p => isBeforeDay(p.date, today));
+    if (pastPuzzles.length > 0) {
+      // Sort by date descending and get the most recent
+      pastPuzzles.sort((a, b) => b.date.getTime() - a.date.getTime());
+      console.warn('No puzzle for today, using most recent past puzzle');
+      return { puzzle: pastPuzzles[0].puzzle, date: pastPuzzles[0].date.toISOString() };
+    }
+
+    // No past puzzles either, return any puzzle
+    console.warn('No puzzle for today or past, using first available');
+    return { puzzle: puzzles[0].puzzle, date: puzzles[0].date.toISOString() };
+  } catch (error) {
+    console.error('Failed to fetch puzzles from sheet:', error);
+    return { puzzle: fallbackPuzzle, date: new Date().toISOString() };
+  }
+};
+
+/**
+ * Get a random puzzle from past dates only (before today)
+ */
+export const getRandomPastPuzzle = async (): Promise<{ puzzle: GameData; date: string }> => {
+  try {
+    const puzzles = await fetchPuzzlesFromSheet();
+
+    if (puzzles.length === 0) {
+      console.warn('No puzzles in sheet, using fallback');
+      return { puzzle: fallbackPuzzle, date: new Date().toISOString() };
+    }
+
+    const today = new Date();
+
+    // Filter to only past puzzles
+    const pastPuzzles = puzzles.filter(p => isBeforeDay(p.date, today));
+
+    if (pastPuzzles.length === 0) {
+      console.warn('No past puzzles available, using fallback');
+      return { puzzle: fallbackPuzzle, date: new Date().toISOString() };
+    }
+
+    const index = Math.floor(Math.random() * pastPuzzles.length);
+    return { puzzle: pastPuzzles[index].puzzle, date: pastPuzzles[index].date.toISOString() };
+  } catch (error) {
+    console.error('Failed to fetch puzzles from sheet:', error);
+    return { puzzle: fallbackPuzzle, date: new Date().toISOString() };
+  }
+};

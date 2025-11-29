@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { GameRow as GameRowType, RowDisplayState, GamePhase, CardState } from '../types';
-import CategoryCard from './CategoryCard';
-import Card from './Card';
+import { GameRow as GameRowType, RowDisplayState, GamePhase, CardState } from '@/types';
+import CategoryCard from '@/components/CategoryCard';
+import Card from '@/components/Card';
 
 interface GameRowProps {
   row: GameRowType;

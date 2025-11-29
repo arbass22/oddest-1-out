@@ -1,13 +1,14 @@
+'use client';
+
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { getTodaysPuzzle, getRandomPastPuzzle } from "./data/puzzles";
 import {
   GameData,
   GameRow as GameRowType,
   RowDisplayState,
   GamePhase,
-} from "./types";
-import GameRow from "./components/GameRow";
-import InfoModal from "./components/InfoModal";
+} from "@/types";
+import GameRow from "@/components/GameRow";
+import InfoModal from "@/components/InfoModal";
 
 const SCORE_LIMIT = 3;
 type ScoreType = "RED" | "YELLOW" | "PURPLE";
@@ -21,7 +22,23 @@ const WIN_PAUSE = 1000;
 // Helper for async delays
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export default function App() {
+// Fetch today's puzzle from API
+async function fetchTodaysPuzzle(): Promise<GameData> {
+  const res = await fetch('/api/puzzle/today');
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.puzzle;
+}
+
+// Fetch random past puzzle from API
+async function fetchRandomPastPuzzle(): Promise<GameData> {
+  const res = await fetch('/api/puzzle/random');
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.puzzle;
+}
+
+export default function Game() {
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [gamePhase, setGamePhase] = useState<GamePhase>("playing");
   const [gameResult, setGameResult] = useState<"won" | "lost" | null>(null);
@@ -98,14 +115,14 @@ export default function App() {
   // Load today's puzzle (used on initial page load)
   const initGame = useCallback(async () => {
     resetGameState();
-    const data = await getTodaysPuzzle();
+    const data = await fetchTodaysPuzzle();
     setGameData(data);
   }, [resetGameState]);
 
   // Load a random past puzzle (used when clicking shuffle button)
   const loadRandomPastPuzzle = useCallback(async () => {
     resetGameState();
-    const data = await getRandomPastPuzzle();
+    const data = await fetchRandomPastPuzzle();
     setGameData(data);
   }, [resetGameState]);
 
@@ -272,14 +289,8 @@ export default function App() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 dark:bg-stone-900 p-4 text-center">
         <h2 className="text-xl font-bold mb-4 text-stone-900 dark:text-stone-100">
-          Something went wrong.
+          Loading...
         </h2>
-        <button
-          onClick={initGame}
-          className="bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 px-6 py-2 rounded-full"
-        >
-          Retry
-        </button>
       </div>
     );
   }
@@ -322,17 +333,17 @@ export default function App() {
         <div className="flex items-center gap-3">
           <button
             onClick={async () => {
-              let shareText = 'Can you find the Oddest1Out? 🧩';
+              let shareText = 'Can you find the Oddest1Out?';
 
               if (gameResult === 'won') {
                 const strikes = score.filter(s => s !== 'PURPLE').length;
                 if (strikes === 0) {
-                  shareText = 'I found the Oddest1Out with no strikes! 🟣 Can you beat that?';
+                  shareText = 'I found the Oddest1Out with no strikes! Can you beat that?';
                 } else {
-                  shareText = `I found the Oddest1Out! ${'🔴'.repeat(score.filter(s => s === 'RED').length)}${'🟡'.repeat(score.filter(s => s === 'YELLOW').length)}🟣 Can you do better?`;
+                  shareText = `I found the Oddest1Out! Can you do better?`;
                 }
               } else if (gameResult === 'lost') {
-                shareText = `I couldn't find the Oddest1Out today 😅 Can you?`;
+                shareText = `I couldn't find the Oddest1Out today. Can you?`;
               }
 
               try {

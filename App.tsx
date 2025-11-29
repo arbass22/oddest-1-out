@@ -390,7 +390,7 @@ export default function App() {
 
       <header className="max-w-2xl w-full flex flex-col items-center mb-8">
         <h1 className="font-serif text-4xl font-bold text-gray-900 tracking-tight mb-2">
-          Odd<span className="text-yellow-500">1</span>Out
+          Oddest<span className="text-yellow-500">1</span>Out
         </h1>
         <div className="flex items-center space-x-2 text-sm text-gray-500 uppercase tracking-widest font-semibold">
           <span>Strikes:</span>

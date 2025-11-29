@@ -30,7 +30,7 @@ const Card: React.FC<CardProps> = ({ text, state, onClick, disabled, style, clas
       case CardState.SELECTED_PHASE2:
         return "bg-violet-100 dark:bg-violet-900/50 border-2 border-violet-500 text-stone-800 dark:text-stone-100 cursor-pointer";
       case CardState.LOCKED_OUTLIER:
-        return "bg-amber-300 dark:bg-amber-500 border-amber-400 dark:border-amber-600 text-amber-900 dark:text-amber-100 shadow-md";
+        return "bg-amber-200 dark:bg-amber-400/70 border-amber-300 dark:border-amber-500 text-amber-800 dark:text-amber-100 shadow-md";
       case CardState.LOCKED_OTHER:
         return "bg-stone-200 dark:bg-stone-700 border-stone-300 dark:border-stone-600 text-stone-400 cursor-not-allowed";
       case CardState.ULTIMATE_WINNER:

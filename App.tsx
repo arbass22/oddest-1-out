@@ -494,7 +494,7 @@ export default function App() {
       </nav>
 
       <header className="max-w-2xl w-full flex flex-col items-center mb-4 sm:mb-6">
-        <h1 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900 dark:text-stone-100 tracking-tight">
+        <h1 className="font-serif text-4xl sm:text-5xl font-bold text-stone-900 dark:text-stone-100 tracking-tight">
           Oddest<span className="text-violet-500">1</span>Out
         </h1>
         <p className="text-stone-500 dark:text-stone-400 text-base sm:text-lg mt-1">

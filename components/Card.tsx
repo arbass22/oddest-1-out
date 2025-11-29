@@ -18,26 +18,26 @@ const Card: React.FC<CardProps> = ({ text, state, onClick, disabled, style, clas
   const getStateClasses = () => {
     switch (state) {
       case CardState.WIN:
-        return "bg-green-600 border-green-700 text-white shadow-lg scale-105 z-10";
+        return "bg-emerald-500 border-emerald-600 text-white shadow-lg scale-105 z-10";
       case CardState.CORRECT_ROW_WRONG_GAME:
-        return "bg-blue-500 border-blue-600 text-white shadow-md";
+        return "bg-sky-500 border-sky-600 text-white shadow-md";
       case CardState.INACTIVE_ROW:
-        return "bg-gray-200 border-gray-300 text-gray-400 cursor-not-allowed";
+        return "bg-stone-200 border-stone-300 text-stone-400 cursor-not-allowed";
       case CardState.WRONG:
-        return "bg-red-500 border-red-600 text-white animate-shake z-10";
+        return "bg-rose-500 border-rose-600 text-white animate-shake z-10";
       case CardState.SELECTED:
-        return "bg-white border-2 border-purple-500 text-gray-800";
+        return "bg-white border-2 border-violet-500 text-stone-800";
       case CardState.SELECTED_PHASE2:
-        return "bg-purple-100 border-2 border-purple-500 text-gray-800 cursor-pointer";
+        return "bg-violet-100 border-2 border-violet-500 text-stone-800 cursor-pointer";
       case CardState.LOCKED_OUTLIER:
-        return "bg-yellow-300 border-yellow-400 text-yellow-900 shadow-md";
+        return "bg-amber-300 border-amber-400 text-amber-900 shadow-md";
       case CardState.LOCKED_OTHER:
-        return "bg-gray-200 border-gray-300 text-gray-400 cursor-not-allowed";
+        return "bg-stone-200 border-stone-300 text-stone-400 cursor-not-allowed";
       case CardState.ULTIMATE_WINNER:
-        return "bg-purple-500 border-purple-600 text-white shadow-lg";
+        return "bg-violet-500 border-violet-600 text-white shadow-lg";
       case CardState.IDLE:
       default:
-        return "bg-white border-gray-300 text-gray-800 hover:bg-gray-50 cursor-pointer hover:shadow-sm";
+        return "bg-white border-stone-300 text-stone-800 hover:bg-stone-50 cursor-pointer hover:shadow-sm";
     }
   };
 

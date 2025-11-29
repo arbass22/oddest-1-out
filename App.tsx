@@ -24,13 +24,13 @@ interface CategoryCardProps {
 const CategoryCard: React.FC<CategoryCardProps> = ({ category, words }) => {
   return (
     <div
-      className="col-span-3 h-14 sm:h-16 bg-gray-100 border-gray-200 border-2 rounded-md flex flex-col items-center justify-center shadow-sm px-2 text-center select-none"
+      className="col-span-3 h-14 sm:h-16 bg-stone-100 border-stone-200 border-2 rounded-md flex flex-col items-center justify-center shadow-sm px-2 text-center select-none"
       style={{ animation: 'fadeIn 600ms ease-out' }}
     >
-      <span className="font-bold text-gray-900 uppercase text-xs sm:text-sm tracking-widest leading-tight mb-0.5">
+      <span className="font-bold text-stone-900 uppercase text-xs sm:text-sm tracking-widest leading-tight mb-0.5">
         {category}
       </span>
-      <span className="text-gray-600 uppercase text-[10px] sm:text-xs font-medium truncate w-full px-2">
+      <span className="text-stone-600 uppercase text-[10px] sm:text-xs font-medium truncate w-full px-2">
         {words.join(', ')}
       </span>
     </div>
@@ -186,26 +186,26 @@ const InfoModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
       onClick={e => e.stopPropagation()}
     >
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg sm:text-xl font-serif font-bold text-gray-900">How to Play</h2>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        <h2 className="text-lg sm:text-xl font-serif font-bold text-stone-900">How to Play</h2>
+        <button onClick={onClose} className="text-stone-400 hover:text-stone-600 text-2xl leading-none">&times;</button>
       </div>
-      <div className="space-y-3 sm:space-y-4 text-gray-700 text-xs sm:text-sm">
+      <div className="space-y-3 sm:space-y-4 text-stone-700 text-xs sm:text-sm">
         <div>
-          <h3 className="font-bold text-gray-900 mb-1">Goal</h3>
-          <p>Find the <span className="text-purple-600 font-semibold">Oddest1Out</span> — the outlier among outliers.</p>
+          <h3 className="font-bold text-stone-900 mb-1">Goal</h3>
+          <p>Find the <span className="text-violet-600 font-semibold">Oddest1Out</span> — the outlier among outliers.</p>
         </div>
         <div>
-          <h3 className="font-bold text-gray-900 mb-1">Phase 1: Select Outliers</h3>
+          <h3 className="font-bold text-stone-900 mb-1">Phase 1: Select Outliers</h3>
           <p>Each row has 4 words. Three belong to a category, one doesn't. Select the outlier in each row.</p>
         </div>
         <div>
-          <h3 className="font-bold text-gray-900 mb-1">Phase 2: Find the Oddest1Out</h3>
+          <h3 className="font-bold text-stone-900 mb-1">Phase 2: Find the Oddest1Out</h3>
           <p>Once all rows are selected, click your choice for the ultimate outlier. Three of the outliers share a hidden connection — one doesn't.</p>
         </div>
         <div>
-          <h3 className="font-bold text-gray-900 mb-1">Strikes</h3>
-          <p><span className="text-red-500 font-semibold">Red</span> = wrong guess (not an outlier)<br/>
-          <span className="text-yellow-500 font-semibold">Yellow</span> = correct outlier, but not the Oddest1Out<br/>
+          <h3 className="font-bold text-stone-900 mb-1">Strikes</h3>
+          <p><span className="text-rose-500 font-semibold">Red</span> = wrong guess (not an outlier)<br/>
+          <span className="text-amber-500 font-semibold">Yellow</span> = correct outlier, but not the Oddest1Out<br/>
           3 strikes and you lose!</p>
         </div>
       </div>
@@ -421,7 +421,7 @@ export default function App() {
 
   if (!gameData) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 text-center">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-4 text-center">
         <h2 className="text-xl font-bold mb-4">Something went wrong.</h2>
         <button onClick={initGame} className="bg-black text-white px-6 py-2 rounded-full">Retry</button>
       </div>
@@ -433,7 +433,7 @@ export default function App() {
     .map(r => r.words[r.outlierIndex].text);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-4 sm:py-8 px-3 sm:px-6">
+    <div className="min-h-screen bg-stone-50 flex flex-col items-center py-4 sm:py-8 px-3 sm:px-6">
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: scale(0.95); }
@@ -444,7 +444,7 @@ export default function App() {
       {/* Navbar */}
       <nav className="w-full max-w-2xl flex items-center justify-between mb-4 sm:mb-6">
         <button
-          className="p-2 text-gray-700 hover:text-gray-900 transition-colors"
+          className="p-2 text-stone-700 hover:text-stone-900 transition-colors"
           aria-label="Menu"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -453,7 +453,7 @@ export default function App() {
         </button>
         <button
           onClick={() => setShowInfo(true)}
-          className="w-7 h-7 rounded-full border-2 border-gray-400 text-gray-400 hover:border-purple-500 hover:text-purple-500 transition-colors text-sm font-bold flex items-center justify-center"
+          className="w-7 h-7 rounded-full border-2 border-stone-400 text-stone-400 hover:border-violet-500 hover:text-violet-500 transition-colors text-sm font-bold flex items-center justify-center"
           aria-label="How to play"
         >
           ?
@@ -461,21 +461,21 @@ export default function App() {
       </nav>
 
       <header className="max-w-2xl w-full flex flex-col items-center mb-4 sm:mb-6">
-        <h1 className="font-serif text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
-          Oddest<span className="text-purple-500">1</span>Out
+        <h1 className="font-serif text-3xl sm:text-4xl font-bold text-stone-900 tracking-tight">
+          Oddest<span className="text-violet-500">1</span>Out
         </h1>
-        <p className="text-gray-500 text-sm sm:text-base mt-1">
+        <p className="text-stone-500 text-base sm:text-lg mt-1">
           {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
         </p>
-        <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-500 uppercase tracking-widest font-semibold mt-3">
+        <div className="flex items-center space-x-2 text-xs sm:text-sm text-stone-500 uppercase tracking-widest font-semibold mt-3">
           <span>Score:</span>
           <div className="flex space-x-1">
             {[...Array(SCORE_LIMIT)].map((_, i) => {
               const item = score[i];
-              let colorClass = 'bg-gray-300';
-              if (item === 'RED') colorClass = 'bg-red-500';
-              if (item === 'YELLOW') colorClass = 'bg-yellow-400';
-              if (item === 'PURPLE') colorClass = 'bg-purple-500';
+              let colorClass = 'bg-stone-300';
+              if (item === 'RED') colorClass = 'bg-rose-500';
+              if (item === 'YELLOW') colorClass = 'bg-amber-400';
+              if (item === 'PURPLE') colorClass = 'bg-violet-500';
               return (
                 <div key={i} className={`h-3 w-3 rounded-full transition-colors duration-300 ${colorClass}`} />
               );
@@ -487,21 +487,21 @@ export default function App() {
       <div className="max-w-2xl w-full mb-4 sm:mb-6 text-center">
         {gameResult ? (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <h2 className={`text-xl sm:text-2xl font-serif font-bold mb-2 ${gameResult === 'won' ? 'text-green-600' : 'text-red-600'}`}>
+            <h2 className={`text-xl sm:text-2xl font-serif font-bold mb-2 ${gameResult === 'won' ? 'text-emerald-600' : 'text-rose-600'}`}>
               {gameResult === 'won' ? 'Victory!' : 'Game Over'}
             </h2>
-            <p className="text-gray-700 font-medium max-w-lg mx-auto text-sm sm:text-base">
+            <p className="text-stone-700 font-medium max-w-lg mx-auto text-sm sm:text-base">
               {gameData.ultimateExplanation}
             </p>
             <button
               onClick={initGame}
-              className="mt-4 text-sm font-bold uppercase tracking-wider text-black border-b-2 border-black hover:text-gray-600 hover:border-gray-600 transition-colors"
+              className="mt-4 text-sm font-bold uppercase tracking-wider text-stone-900 border-b-2 border-stone-900 hover:text-stone-600 hover:border-stone-600 transition-colors"
             >
               Play Again
             </button>
           </div>
         ) : (
-          <p className={`font-medium transition-colors duration-300 text-sm sm:text-base ${feedbackMessage === 'wrong' ? 'text-red-500' : feedbackMessage === 'partial' ? 'text-yellow-600' : feedbackMessage === 'lastguess' ? 'text-purple-600 font-bold' : allRowsSelected ? 'text-purple-600' : 'text-gray-600'}`}>
+          <p className={`font-medium transition-colors duration-300 text-sm sm:text-base ${feedbackMessage === 'wrong' ? 'text-rose-500' : feedbackMessage === 'partial' ? 'text-amber-600' : feedbackMessage === 'lastguess' ? 'text-violet-600 font-bold' : allRowsSelected ? 'text-violet-600' : 'text-stone-600'}`}>
             {feedbackMessage === 'wrong'
               ? "That one wasn't even Odd, try again"
               : feedbackMessage === 'partial'
@@ -562,13 +562,13 @@ export default function App() {
               animation: 'fadeIn 800ms ease-out'
             }}
           >
-            <div className="w-full h-full bg-gray-100 border-2 border-gray-200 rounded-md shadow-lg flex flex-col items-center justify-center text-center p-3 select-none">
-              <span className="font-bold text-gray-900 uppercase text-xs sm:text-sm tracking-widest leading-tight mb-3">
+            <div className="w-full h-full bg-stone-100 border-2 border-violet-500 rounded-md flex flex-col items-center justify-center text-center p-3 select-none">
+              <span className="font-bold text-stone-900 uppercase text-xs sm:text-sm tracking-widest leading-tight mb-3">
                 {gameData.metaCategory}
               </span>
               <div className="flex flex-col space-y-2">
                 {metaWords.map(word => (
-                  <span key={word} className="text-gray-600 uppercase text-[10px] sm:text-xs font-medium">
+                  <span key={word} className="text-stone-600 uppercase text-[10px] sm:text-xs font-medium">
                     {word}
                   </span>
                 ))}

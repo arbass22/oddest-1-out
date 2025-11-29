@@ -222,10 +222,10 @@ export default function App() {
   const [rowHeight, setRowHeight] = useState('4rem');
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('darkMode') === 'true' ||
-        window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const stored = localStorage.getItem('darkMode');
+      return stored === null ? true : stored === 'true';
     }
-    return false;
+    return true;
   });
 
   useEffect(() => {
@@ -262,7 +262,7 @@ export default function App() {
   // Track if animation is running to prevent double triggers
   const isAnimatingRef = useRef(false);
 
-  const initGame = useCallback(() => {
+  const initGame = useCallback(async () => {
     setSelections({});
     setRowStates({ 0: 'interactive', 1: 'interactive', 2: 'interactive', 3: 'interactive' });
     setScore([]);
@@ -274,7 +274,7 @@ export default function App() {
     setGamePhase('playing');
     setGameResult(null);
     isAnimatingRef.current = false;
-    const data = getRandomPuzzle();
+    const data = await getRandomPuzzle();
     setGameData(data);
   }, []);
 

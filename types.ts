@@ -28,3 +28,9 @@ export enum CardState {
 }
 
 export type GameStatus = 'loading' | 'playing' | 'won' | 'lost' | 'error';
+
+// Row display states for animation
+export type RowDisplayState = 'interactive' | 'sliding' | 'revealed';
+
+// Game phase for animation control
+export type GamePhase = 'playing' | 'animating' | 'ended';

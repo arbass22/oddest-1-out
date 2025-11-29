@@ -1,0 +1,5 @@
+{
+  "name": "Odd1Out",
+  "description": "A multi-layered word association game where you find the outlier in rows, and then the ultimate outlier among the winners.",
+  "requestFramePermissions": []
+}

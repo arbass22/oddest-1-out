@@ -46,6 +46,15 @@ export const isBeforeDay = (d1: Date, d2: Date): boolean => {
   return d1Start < d2Start;
 };
 
+// Parse client date string (YYYY-MM-DD) or fall back to current date
+const parseClientDate = (clientDate?: string | null): Date => {
+  if (clientDate) {
+    const [year, month, day] = clientDate.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  return new Date();
+};
+
 // Fisher-Yates shuffle
 function shuffleArray<T>(array: T[]): T[] {
   const newArray = [...array];
@@ -261,14 +270,7 @@ export const getTodaysPuzzle = async (clientDate?: string | null): Promise<{ puz
       return { puzzle: fallbackPuzzle, date: new Date().toISOString() };
     }
 
-    // Use client date if provided, otherwise fall back to server date
-    let today: Date;
-    if (clientDate) {
-      const [year, month, day] = clientDate.split('-').map(Number);
-      today = new Date(year, month - 1, day);
-    } else {
-      today = new Date();
-    }
+    const today = parseClientDate(clientDate);
 
     // Find puzzle for today
     const todaysPuzzle = puzzles.find(p => isSameDay(p.date, today));
@@ -307,14 +309,7 @@ export const getRandomPastPuzzle = async (clientDate?: string | null): Promise<{
       return { puzzle: fallbackPuzzle, date: new Date().toISOString() };
     }
 
-    // Use client date if provided, otherwise fall back to server date
-    let today: Date;
-    if (clientDate) {
-      const [year, month, day] = clientDate.split('-').map(Number);
-      today = new Date(year, month - 1, day);
-    } else {
-      today = new Date();
-    }
+    const today = parseClientDate(clientDate);
 
     // Filter to only past puzzles
     const pastPuzzles = puzzles.filter(p => isBeforeDay(p.date, today));

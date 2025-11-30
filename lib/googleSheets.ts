@@ -250,8 +250,9 @@ export const fetchPuzzlesFromSheet = async (): Promise<PuzzleWithDate[]> => {
 /**
  * Get today's puzzle (matching current date)
  * Falls back to most recent past puzzle if no puzzle for today
+ * @param clientDate - Optional date string in "YYYY-MM-DD" format from client's timezone
  */
-export const getTodaysPuzzle = async (): Promise<{ puzzle: GameData; date: string }> => {
+export const getTodaysPuzzle = async (clientDate?: string | null): Promise<{ puzzle: GameData; date: string }> => {
   try {
     const puzzles = await fetchPuzzlesFromSheet();
 
@@ -260,7 +261,14 @@ export const getTodaysPuzzle = async (): Promise<{ puzzle: GameData; date: strin
       return { puzzle: fallbackPuzzle, date: new Date().toISOString() };
     }
 
-    const today = new Date();
+    // Use client date if provided, otherwise fall back to server date
+    let today: Date;
+    if (clientDate) {
+      const [year, month, day] = clientDate.split('-').map(Number);
+      today = new Date(year, month - 1, day);
+    } else {
+      today = new Date();
+    }
 
     // Find puzzle for today
     const todaysPuzzle = puzzles.find(p => isSameDay(p.date, today));
@@ -288,8 +296,9 @@ export const getTodaysPuzzle = async (): Promise<{ puzzle: GameData; date: strin
 
 /**
  * Get a random puzzle from past dates only (before today)
+ * @param clientDate - Optional date string in "YYYY-MM-DD" format from client's timezone
  */
-export const getRandomPastPuzzle = async (): Promise<{ puzzle: GameData; date: string }> => {
+export const getRandomPastPuzzle = async (clientDate?: string | null): Promise<{ puzzle: GameData; date: string }> => {
   try {
     const puzzles = await fetchPuzzlesFromSheet();
 
@@ -298,7 +307,14 @@ export const getRandomPastPuzzle = async (): Promise<{ puzzle: GameData; date: s
       return { puzzle: fallbackPuzzle, date: new Date().toISOString() };
     }
 
-    const today = new Date();
+    // Use client date if provided, otherwise fall back to server date
+    let today: Date;
+    if (clientDate) {
+      const [year, month, day] = clientDate.split('-').map(Number);
+      today = new Date(year, month - 1, day);
+    } else {
+      today = new Date();
+    }
 
     // Filter to only past puzzles
     const pastPuzzles = puzzles.filter(p => isBeforeDay(p.date, today));

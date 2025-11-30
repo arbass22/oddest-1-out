@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import dayjs from "dayjs";
 import {
   GameData,
   GameRow as GameRowType,
@@ -24,7 +25,8 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Fetch today's puzzle from API
 async function fetchTodaysPuzzle(): Promise<GameData> {
-  const res = await fetch('/api/puzzle/today');
+  const localDate = dayjs().format('YYYY-MM-DD');
+  const res = await fetch(`/api/puzzle/today?date=${localDate}`);
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   return data.puzzle;
@@ -32,7 +34,8 @@ async function fetchTodaysPuzzle(): Promise<GameData> {
 
 // Fetch random past puzzle from API
 async function fetchRandomPastPuzzle(): Promise<GameData> {
-  const res = await fetch('/api/puzzle/random');
+  const localDate = dayjs().format('YYYY-MM-DD');
+  const res = await fetch(`/api/puzzle/random?date=${localDate}`);
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   return data.puzzle;

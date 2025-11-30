@@ -46,6 +46,15 @@ export const isBeforeDay = (d1: Date, d2: Date): boolean => {
   return d1Start < d2Start;
 };
 
+// Parse client date string (YYYY-MM-DD) or fall back to current date
+const parseClientDate = (clientDate?: string | null): Date => {
+  if (clientDate) {
+    const [year, month, day] = clientDate.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  return new Date();
+};
+
 // Fisher-Yates shuffle
 function shuffleArray<T>(array: T[]): T[] {
   const newArray = [...array];
@@ -250,8 +259,9 @@ export const fetchPuzzlesFromSheet = async (): Promise<PuzzleWithDate[]> => {
 /**
  * Get today's puzzle (matching current date)
  * Falls back to most recent past puzzle if no puzzle for today
+ * @param clientDate - Optional date string in "YYYY-MM-DD" format from client's timezone
  */
-export const getTodaysPuzzle = async (): Promise<{ puzzle: GameData; date: string }> => {
+export const getTodaysPuzzle = async (clientDate?: string | null): Promise<{ puzzle: GameData; date: string }> => {
   try {
     const puzzles = await fetchPuzzlesFromSheet();
 
@@ -260,7 +270,7 @@ export const getTodaysPuzzle = async (): Promise<{ puzzle: GameData; date: strin
       return { puzzle: fallbackPuzzle, date: new Date().toISOString() };
     }
 
-    const today = new Date();
+    const today = parseClientDate(clientDate);
 
     // Find puzzle for today
     const todaysPuzzle = puzzles.find(p => isSameDay(p.date, today));
@@ -288,8 +298,9 @@ export const getTodaysPuzzle = async (): Promise<{ puzzle: GameData; date: strin
 
 /**
  * Get a random puzzle from past dates only (before today)
+ * @param clientDate - Optional date string in "YYYY-MM-DD" format from client's timezone
  */
-export const getRandomPastPuzzle = async (): Promise<{ puzzle: GameData; date: string }> => {
+export const getRandomPastPuzzle = async (clientDate?: string | null): Promise<{ puzzle: GameData; date: string }> => {
   try {
     const puzzles = await fetchPuzzlesFromSheet();
 
@@ -298,7 +309,7 @@ export const getRandomPastPuzzle = async (): Promise<{ puzzle: GameData; date: s
       return { puzzle: fallbackPuzzle, date: new Date().toISOString() };
     }
 
-    const today = new Date();
+    const today = parseClientDate(clientDate);
 
     // Filter to only past puzzles
     const pastPuzzles = puzzles.filter(p => isBeforeDay(p.date, today));

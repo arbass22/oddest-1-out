@@ -13,6 +13,32 @@ import InfoModal from "@/components/InfoModal";
 
 const SCORE_LIMIT = 3;
 type ScoreType = "RED" | "YELLOW" | "PURPLE";
+type FeedbackMessage = "wrong" | "partial" | "lastguess";
+
+// Tip configuration - single source of truth for all tip text
+const TIPS = {
+  top: {
+    default: { text: "3 words in each row fit a category and 1 is the Odd 1 Out.", className: "text-stone-600 dark:text-stone-400" },
+    feedback: {
+      wrong: { text: "That wasn't the Odd1Out, choose a different word from that row", className: "text-rose-500" },
+      partial: { text: "That's the Odd one out for this row, but not the Oddest one of them all.", className: "text-amber-500" },
+      lastguess: { text: "Last guess!", className: "text-rose-500 font-bold" },
+    },
+  },
+  bottom: {
+    phase1: "Build a final category puzzle of 4 words by highlighting the Odd 1 Out in each row.",
+    phase2: "Now choose the Oddest 1 Out from your selections.",
+  },
+};
+
+// Derive tips based on game state
+function getTips(feedbackMessage: FeedbackMessage | null, allRowsSelected: boolean) {
+  const topTip = feedbackMessage
+    ? TIPS.top.feedback[feedbackMessage]
+    : TIPS.top.default;
+  const bottomTip = allRowsSelected ? TIPS.bottom.phase2 : TIPS.bottom.phase1;
+  return { topTip, bottomTip };
+}
 
 // Animation timing constants
 const SLIDE_DURATION = 800;
@@ -488,28 +514,17 @@ export default function Game() {
             </button>
           </div>
         ) : (
-          <p
-            key={`${feedbackMessage}-${allRowsSelected}`}
-            className={`font-medium text-sm sm:text-base animate-text-pop ${
-              feedbackMessage === "wrong"
-                ? "text-rose-500"
-                : feedbackMessage === "partial"
-                ? "text-amber-500"
-                : feedbackMessage === "lastguess"
-                ? "text-rose-500 font-bold"
-                : "text-stone-600 dark:text-stone-400"
-            }`}
-          >
-            {feedbackMessage === "wrong"
-              ? "That one wasn't even Odd, try again"
-              : feedbackMessage === "partial"
-              ? "That's the Odd one out for this row, but not the Oddest one of them all."
-              : feedbackMessage === "lastguess"
-              ? "Last guess!"
-              : !allRowsSelected
-              ? "Select the outlier in each row"
-              : "Find the Oddest1Out among your selections"}
-          </p>
+          (() => {
+            const { topTip } = getTips(feedbackMessage, allRowsSelected);
+            return (
+              <p
+                key={`top-${feedbackMessage}`}
+                className={`font-medium text-sm sm:text-base animate-text-pop ${topTip.className}`}
+              >
+                {topTip.text}
+              </p>
+            );
+          })()
         )}
       </div>
 
@@ -582,6 +597,18 @@ export default function Game() {
           </div>
         )}
       </div>
+
+      {/* Bottom tip - below puzzle */}
+      {!gameResult && (
+        <div className="max-w-2xl w-full mt-4 sm:mt-6 text-center">
+          <p
+            key={`bottom-${allRowsSelected}`}
+            className="font-medium text-sm sm:text-base text-stone-600 dark:text-stone-400 animate-text-pop"
+          >
+            {getTips(feedbackMessage, allRowsSelected).bottomTip}
+          </p>
+        </div>
+      )}
 
       {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
     </div>

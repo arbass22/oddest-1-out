@@ -75,6 +75,7 @@ export default function Game() {
   const [gamePhase, setGamePhase] = useState<GamePhase>("playing");
   const [gameResult, setGameResult] = useState<"won" | "lost" | null>(null);
   const [showInfo, setShowInfo] = useState(false);
+  const [showStandoutInfo, setShowStandoutInfo] = useState(false);
   const [rowHeight, setRowHeight] = useState("4rem");
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
@@ -182,24 +183,25 @@ export default function Game() {
     setGamePhase("animating");
     setGameResult("won");
 
-    // 1. Winner row: slide cards
-    setRowStates((prev) => ({ ...prev, [winnerRowIndex]: "sliding" }));
-    await delay(SLIDE_DURATION);
-
-    // 2. Winner row: reveal category
-    setRowStates((prev) => ({ ...prev, [winnerRowIndex]: "revealed" }));
+    // 1. Winner row: slide cards (only if not already revealed)
+    if (rowStates[winnerRowIndex] !== "revealed") {
+      setRowStates((prev) => ({ ...prev, [winnerRowIndex]: "sliding" }));
+      await delay(SLIDE_DURATION);
+      setRowStates((prev) => ({ ...prev, [winnerRowIndex]: "revealed" }));
+    }
     await delay(WIN_PAUSE);
 
-    // 3. Reveal other rows sequentially (including locked ones)
+    // 2. Reveal other rows sequentially (skip already revealed)
     const otherRows = [0, 1, 2, 3].filter((i) => i !== winnerRowIndex);
     for (const rowIdx of otherRows) {
+      if (rowStates[rowIdx] === "revealed") continue; // Skip already revealed
       setRowStates((prev) => ({ ...prev, [rowIdx]: "sliding" }));
       await delay(SLIDE_DURATION);
       setRowStates((prev) => ({ ...prev, [rowIdx]: "revealed" }));
       await delay(CATEGORY_FADE_DURATION);
     }
 
-    // 4. Reorder rows: winner to bottom
+    // 3. Reorder rows: winner to bottom
     await delay(500);
     const newOrder = new Array(4).fill(0);
     let pos = 0;
@@ -213,10 +215,10 @@ export default function Game() {
     setVisualRowOrder(newOrder);
     await delay(ROW_REORDER_DURATION);
 
-    // 5. Show meta overlay
+    // 4. Show meta overlay
     setShowMetaOverlay(true);
     setGamePhase("ended");
-  }, []);
+  }, [rowStates]);
 
   const runLossSequence = useCallback(async (ultimateRowIndex: number) => {
     if (isAnimatingRef.current) return;
@@ -226,11 +228,12 @@ export default function Game() {
 
     await delay(500);
 
-    // Reveal all rows sequentially (including locked), ultimate winner last
+    // Reveal all rows sequentially (skip already revealed), ultimate winner last
     const rowOrder = [0, 1, 2, 3].filter((i) => i !== ultimateRowIndex);
     rowOrder.push(ultimateRowIndex);
 
     for (const rowIdx of rowOrder) {
+      if (rowStates[rowIdx] === "revealed") continue; // Skip already revealed
       setRowStates((prev) => ({ ...prev, [rowIdx]: "sliding" }));
       await delay(SLIDE_DURATION);
       setRowStates((prev) => ({ ...prev, [rowIdx]: "revealed" }));
@@ -254,7 +257,7 @@ export default function Game() {
     // Show meta overlay
     setShowMetaOverlay(true);
     setGamePhase("ended");
-  }, []);
+  }, [rowStates]);
 
   // --- Check Mode: Grade row selections one by one ---
   const runCheckSequence = useCallback(async () => {
@@ -275,12 +278,12 @@ export default function Game() {
       const isCorrect = selectedIdx === gameData.rows[rowIndex].outlierIndex;
 
       if (isCorrect) {
-        // Slide animation → reveal category
+        // Slide animation → reveal category (stays purple, no strike)
         setRowStates((prev) => ({ ...prev, [rowIndex]: "sliding" }));
         await delay(SLIDE_DURATION);
         setRowStates((prev) => ({ ...prev, [rowIndex]: "revealed" }));
         setRowCheckStatuses((prev) => ({ ...prev, [rowIndex]: "revealed" }));
-        setSolvedRows((prev) => new Set([...prev, rowIndex]));
+        // Note: Don't set solvedRows here - that's only for Standout partial (amber)
         await delay(CATEGORY_FADE_DURATION);
       } else {
         // Wrong: flash red, add strike, clear selection
@@ -704,16 +707,27 @@ export default function Game() {
       {!gameResult && (
         <div className="max-w-2xl w-full mt-4 sm:mt-6 text-center">
           {showCheckButton ? (
-            <div className="flex flex-col items-center gap-2 animate-text-pop">
+            <div className="flex items-center justify-center gap-4 animate-text-pop">
               <button
                 onClick={runCheckSequence}
                 className="px-8 py-3 bg-violet-500 hover:bg-violet-600 text-white font-bold rounded-lg uppercase tracking-wider transition-colors"
               >
                 Check
               </button>
-              <span className="text-sm text-stone-500 dark:text-stone-400">
-                or go for Standout Mode
-              </span>
+              <div className="flex items-center gap-1">
+                <span className="text-sm text-stone-500 dark:text-stone-400">
+                  or go for Standout Mode
+                </span>
+                <button
+                  onClick={() => setShowStandoutInfo(true)}
+                  className="p-1 text-stone-400 hover:text-violet-500 transition-colors"
+                  aria-label="What is Standout Mode?"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
+              </div>
             </div>
           ) : (
             <p
@@ -727,6 +741,50 @@ export default function Game() {
       )}
 
       {showInfo && <InfoModal onClose={() => setShowInfo(false)} />}
+
+      {/* Standout Mode Info Modal */}
+      {showStandoutInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowStandoutInfo(false)}>
+          <div
+            className="bg-white dark:bg-stone-800 rounded-xl p-6 max-w-md w-full shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">
+                Standout Mode
+              </h2>
+              <button
+                onClick={() => setShowStandoutInfo(false)}
+                className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-300"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-3 text-stone-700 dark:text-stone-300 text-sm">
+              <p>
+                <strong>Skip the Check</strong> and go straight for the Oddest 1 Out!
+              </p>
+              <p>
+                Instead of pressing Check, tap one of your selected words directly to guess that it&apos;s the ultimate answer.
+              </p>
+              <p className="text-amber-600 dark:text-amber-400">
+                <strong>Risk:</strong> If you&apos;re wrong about which word is the Odd 1 Out in that row, you&apos;ll get a strike.
+              </p>
+              <p className="text-emerald-600 dark:text-emerald-400">
+                <strong>Reward:</strong> Win without using Check for bragging rights!
+              </p>
+            </div>
+            <button
+              onClick={() => setShowStandoutInfo(false)}
+              className="mt-6 w-full py-2 bg-violet-500 hover:bg-violet-600 text-white font-bold rounded-lg transition-colors"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

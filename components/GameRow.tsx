@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GameRow as GameRowType, RowDisplayState, GamePhase, CardState } from '@/types';
+import { GameRow as GameRowType, RowDisplayState, GamePhase, CardState, RowCheckStatus } from '@/types';
 import CategoryCard from '@/components/CategoryCard';
 import Card from '@/components/Card';
 
@@ -15,6 +15,7 @@ interface GameRowProps {
   isSolved: boolean;
   slideDuration: number;
   onCardClick: (rIdx: number, wIdx: number) => void;
+  rowCheckStatus: RowCheckStatus;
 }
 
 const GameRow: React.FC<GameRowProps> = ({
@@ -29,6 +30,7 @@ const GameRow: React.FC<GameRowProps> = ({
   isSolved,
   slideDuration,
   onCardClick,
+  rowCheckStatus,
 }) => {
   const [gapSize, setGapSize] = useState("0.5rem");
 
@@ -48,10 +50,13 @@ const GameRow: React.FC<GameRowProps> = ({
 
   // REVEALED STATE: Only show category card + outlier
   if (displayState === "revealed") {
-    // Ultimate winner shows purple, solved rows stay yellow, others keep selection color
+    // Ultimate winner shows purple, solved rows stay yellow, others clickable for standout
     let outlierState = CardState.SELECTED_PHASE2;
+    let isClickable = gamePhase === "playing"; // Revealed outliers are clickable for standout guesses
+
     if (isUltimateWinner) {
       outlierState = CardState.ULTIMATE_WINNER;
+      isClickable = false; // Ultimate winner is not clickable (game is over)
     } else if (isSolved) {
       outlierState = CardState.LOCKED_OUTLIER;
     }
@@ -62,8 +67,8 @@ const GameRow: React.FC<GameRowProps> = ({
         <Card
           text={outlierWord.text}
           state={outlierState}
-          onClick={() => {}}
-          disabled={true}
+          onClick={() => onCardClick(rowIndex, row.outlierIndex)}
+          disabled={!isClickable}
         />
       </div>
     );

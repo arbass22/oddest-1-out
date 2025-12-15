@@ -13,32 +13,93 @@ import GameRow from "@/components/GameRow";
 import InfoModal from "@/components/InfoModal";
 
 const SCORE_LIMIT = 3;
-type ScoreType = "RED" | "YELLOW" | "PURPLE";
+type ScoreColor = "RED" | "YELLOW" | "PURPLE";
+type ScoreShape = "circle" | "star";
+interface ScoreItem {
+  color: ScoreColor;
+  shape: ScoreShape;
+}
 type FeedbackMessage = "wrong" | "partial" | "lastguess";
 
 // Tip configuration - single source of truth for all tip text
-const TIPS = {
-  top: {
-    default: { text: "3 words in each row fit a category and 1 is the Odd 1 Out.", className: "text-stone-600 dark:text-stone-400" },
-    feedback: {
-      wrong: { text: "That wasn't the Odd1Out, choose a different word from that row", className: "text-rose-500" },
-      partial: { text: "That's the Odd one out for this row, but not the Oddest one of them all.", className: "text-amber-500" },
-      lastguess: { text: "Last guess!", className: "text-rose-500 font-bold" },
-    },
+interface Tip {
+  text: string;
+  className: string;
+}
+
+const TIPS: Record<string, Tip> = {
+  initial: {
+    text: "3 words in each row fit a category. Tap the Odd 1 Out in each.",
+    className: "text-stone-600 dark:text-stone-400",
   },
-  bottom: {
-    selecting: "Highlight the Odd 1 Out in each row.",
-    ready: "Check your answers or tap a selection to go for Standout Mode.",
+  selecting: {
+    text: "Keep going - find the Odd 1 Out in each row.",
+    className: "text-stone-600 dark:text-stone-400",
+  },
+  ready: {
+    text: "Tap a selection to guess the Oddest, or press Check.",
+    className: "text-violet-600 dark:text-violet-400",
+  },
+  continueSelecting: {
+    text: "Select the Odd 1 Out in the remaining rows.",
+    className: "text-stone-600 dark:text-stone-400",
+  },
+  nearWin: {
+    text: "One row left - is this the Oddest 1 Out?",
+    className: "text-violet-600 dark:text-violet-400 font-medium",
+  },
+  wrong: {
+    text: "That word fits the category. Try another in that row.",
+    className: "text-rose-500",
+  },
+  partial: {
+    text: "Correct outlier, but not the Oddest one.",
+    className: "text-amber-500",
+  },
+  lastGuess: {
+    text: "Final chance! Choose carefully.",
+    className: "text-rose-500 font-bold",
+  },
+  allRevealed: {
+    text: "These are the Odd words for each row. Now tap the Oddest of the Odds to win.",
+    className: "text-violet-600 dark:text-violet-400",
   },
 };
 
-// Derive tips based on game state
-function getTips(feedbackMessage: FeedbackMessage | null, allRowsSelected: boolean) {
-  const topTip = feedbackMessage
-    ? TIPS.top.feedback[feedbackMessage]
-    : TIPS.top.default;
-  const bottomTip = allRowsSelected ? TIPS.bottom.ready : TIPS.bottom.selecting;
-  return { topTip, bottomTip };
+// Derive tip based on game state
+function getTip(
+  feedbackMessage: FeedbackMessage | null,
+  selectionsInUnrevealedRows: number,
+  unrevealedRowCount: number,
+  allRowsSelected: boolean,
+  hasAnyReveals: boolean
+): Tip {
+  // Priority 1: Active feedback (overrides everything)
+  if (feedbackMessage) {
+    if (feedbackMessage === "lastguess") return TIPS.lastGuess;
+    if (feedbackMessage === "wrong") return TIPS.wrong;
+    if (feedbackMessage === "partial") return TIPS.partial;
+  }
+
+  // Priority 2: All rows revealed - pick the ultimate
+  if (unrevealedRowCount === 0) return TIPS.allRevealed;
+
+  // Priority 3: Near-win (1 row left with selection)
+  if (unrevealedRowCount === 1 && allRowsSelected) return TIPS.nearWin;
+
+  // Priority 3: Ready state (all selections made)
+  if (allRowsSelected) return TIPS.ready;
+
+  // Priority 4: Continue after reveals
+  if (hasAnyReveals && selectionsInUnrevealedRows < unrevealedRowCount) {
+    return TIPS.continueSelecting;
+  }
+
+  // Priority 5: Selecting (some progress)
+  if (selectionsInUnrevealedRows > 0) return TIPS.selecting;
+
+  // Priority 6: Initial
+  return TIPS.initial;
 }
 
 // Animation timing constants
@@ -76,6 +137,8 @@ export default function Game() {
   const [gameResult, setGameResult] = useState<"won" | "lost" | null>(null);
   const [showInfo, setShowInfo] = useState(false);
   const [showStandoutInfo, setShowStandoutInfo] = useState(false);
+  const [showStandoutText, setShowStandoutText] = useState(false);
+  const [showCheckButtonDelayed, setShowCheckButtonDelayed] = useState(false);
   const [rowHeight, setRowHeight] = useState("4rem");
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
@@ -103,6 +166,23 @@ export default function Game() {
     return () => window.removeEventListener("resize", updateRowHeight);
   }, []);
 
+  // Synced glow animation using CSS custom property
+  useEffect(() => {
+    const GLOW_DURATION = 1500; // ms, matches animation duration
+    let animationId: number;
+
+    const updateGlow = () => {
+      const progress = (Date.now() % GLOW_DURATION) / GLOW_DURATION;
+      // Sine wave: 0 -> 1 -> 0 over the cycle
+      const intensity = Math.sin(progress * Math.PI);
+      document.documentElement.style.setProperty('--glow-intensity', String(intensity));
+      animationId = requestAnimationFrame(updateGlow);
+    };
+
+    updateGlow();
+    return () => cancelAnimationFrame(animationId);
+  }, []);
+
   const [selections, setSelections] = useState<Record<number, number>>({});
   const [rowStates, setRowStates] = useState<Record<number, RowDisplayState>>({
     0: "interactive",
@@ -114,7 +194,7 @@ export default function Game() {
   const [visualRowOrder, setVisualRowOrder] = useState<number[]>([0, 1, 2, 3]);
   const [showMetaOverlay, setShowMetaOverlay] = useState(false);
 
-  const [score, setScore] = useState<ScoreType[]>([]);
+  const [score, setScore] = useState<ScoreItem[]>([]);
   const [failedGuesses, setFailedGuesses] = useState<
     Record<number, Set<number>>
   >({});
@@ -131,6 +211,9 @@ export default function Game() {
 
   // Track if animation is running to prevent double triggers
   const isAnimatingRef = useRef(false);
+
+  // Store last displayed tip to freeze during checking phase
+  const lastTipRef = useRef<Tip>(TIPS.initial);
 
   const resetGameState = useCallback(() => {
     setSelections({});
@@ -293,7 +376,7 @@ export default function Game() {
           return { ...prev, [rowIndex]: set };
         });
 
-        currentScore = [...currentScore, "RED" as ScoreType];
+        currentScore = [...currentScore, { color: "RED" as ScoreColor, shape: "circle" as ScoreShape }];
         setScore(currentScore);
 
         setSelections((prev) => {
@@ -302,9 +385,14 @@ export default function Game() {
           return next;
         });
 
+        // Show feedback message based on strikes
+        setFeedbackMessage(currentScore.length === 2 ? "lastguess" : "wrong");
+
         await delay(WRONG_FLASH_DURATION);
 
         if (currentScore.length >= SCORE_LIMIT) {
+          // Reset animation flag so runLossSequence can execute
+          isAnimatingRef.current = false;
           await runLossSequence(gameData.ultimateOutlierRowIndex);
           return;
         }
@@ -328,14 +416,14 @@ export default function Game() {
 
     if (isUltimate && isRowOutlier) {
       // WIN!
-      setScore((prev) => [...prev, "PURPLE" as ScoreType]);
+      setScore((prev) => [...prev, { color: "PURPLE" as ScoreColor, shape: "star" as ScoreShape }]);
       await runWinSequence(rowIndex);
       return;
     }
 
     if (isRowOutlier) {
-      // Correct outlier but not ultimate → YELLOW
-      const newScore = [...score, "YELLOW" as ScoreType];
+      // Correct outlier but not ultimate → YELLOW (star for Stand Out mode)
+      const newScore = [...score, { color: "YELLOW" as ScoreColor, shape: "star" as ScoreShape }];
       setScore(newScore);
       setSolvedRows((prev) => new Set([...prev, rowIndex]));
 
@@ -353,8 +441,8 @@ export default function Game() {
         await runLossSequence(gameData.ultimateOutlierRowIndex);
       }
     } else {
-      // Wrong → RED (only possible on unrevealed rows)
-      const newScore = [...score, "RED" as ScoreType];
+      // Wrong → RED (star for Stand Out mode, only possible on unrevealed rows)
+      const newScore = [...score, { color: "RED" as ScoreColor, shape: "star" as ScoreShape }];
       setScore(newScore);
       setFeedbackMessage(newScore.length === 2 ? "lastguess" : "wrong");
 
@@ -378,12 +466,43 @@ export default function Game() {
 
   // --- Game Logic ---
 
+  // Count how many unrevealed rows exist and how many have selections
+  const unrevealedRowCount = Object.values(rowCheckStatuses).filter(s => s === "pending").length;
+  const selectionsInUnrevealedRows = gameData
+    ? Object.keys(selections).filter(rowIdx => rowCheckStatuses[parseInt(rowIdx)] === "pending").length
+    : 0;
+
+  // All rows are "selected" when every unrevealed row has a selection
   const allRowsSelected = gameData
-    ? Object.keys(selections).length === 4
+    ? unrevealedRowCount > 0 && selectionsInUnrevealedRows === unrevealedRowCount
     : false;
+
+  // Check if any rows have been revealed (for tip logic)
+  const hasAnyReveals = Object.values(rowCheckStatuses).some(s => s === "revealed");
 
   // Show Check button when all rows selected and game is in playing state
   const showCheckButton = allRowsSelected && gamePhase === "playing";
+
+  // Delay showing the Check button and Stand Out text
+  useEffect(() => {
+    if (showCheckButton) {
+      // Show Check button after 1 second
+      const checkTimer = setTimeout(() => {
+        setShowCheckButtonDelayed(true);
+      }, 1000);
+      // Show Stand Out text 1 second after Check button (2s total)
+      const standoutTimer = setTimeout(() => {
+        setShowStandoutText(true);
+      }, 2000);
+      return () => {
+        clearTimeout(checkTimer);
+        clearTimeout(standoutTimer);
+      };
+    } else {
+      setShowCheckButtonDelayed(false);
+      setShowStandoutText(false);
+    }
+  }, [showCheckButton]);
 
   const handleCardClick = async (rowIndex: number, wordIndex: number) => {
     if (gamePhase !== "playing" || !gameData) return;
@@ -452,23 +571,10 @@ export default function Game() {
       <nav className="w-full max-w-2xl flex items-center justify-between mb-4 sm:mb-6">
         <button
           onClick={loadRandomPastPuzzle}
-          className="p-2 text-stone-700 dark:text-stone-300 hover:text-violet-500 transition-colors"
-          aria-label="Random past puzzle"
-          title="Random past puzzle"
+          className="text-sm font-medium text-stone-600 dark:text-stone-400 hover:text-violet-500 dark:hover:text-violet-400 transition-colors"
+          aria-label="Play Archived Puzzles"
         >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
+          Play Archived Puzzles
         </button>
         <div className="flex items-center gap-3">
           <button
@@ -476,9 +582,14 @@ export default function Game() {
               let shareText = 'Can you find the Oddest1Out?';
 
               if (gameResult === 'won') {
-                const strikes = score.filter(s => s !== 'PURPLE').length;
-                if (strikes === 0) {
+                const strikes = score.filter(s => s.color !== 'PURPLE').length;
+                const hasStars = score.some(s => s.shape === 'star');
+                if (strikes === 0 && hasStars) {
+                  shareText = 'I found the Oddest1Out in Stand Out mode with no strikes! ⭐ Can you beat that?';
+                } else if (strikes === 0) {
                   shareText = 'I found the Oddest1Out with no strikes! Can you beat that?';
+                } else if (hasStars) {
+                  shareText = `I found the Oddest1Out in Stand Out mode! ⭐ Can you do better?`;
                 } else {
                   shareText = `I found the Oddest1Out! Can you do better?`;
                 }
@@ -582,14 +693,28 @@ export default function Game() {
           <div className="flex space-x-1">
             {[...Array(SCORE_LIMIT)].map((_, i) => {
               const item = score[i];
-              let colorClass = "bg-stone-300 dark:bg-stone-700";
-              if (item === "RED") colorClass = "bg-rose-500";
-              if (item === "YELLOW") colorClass = "bg-amber-400";
-              if (item === "PURPLE") colorClass = "bg-violet-500";
+              let colorClass = "text-stone-300 dark:text-stone-700";
+              if (item?.color === "RED") colorClass = "text-rose-500";
+              if (item?.color === "YELLOW") colorClass = "text-amber-400";
+              if (item?.color === "PURPLE") colorClass = "text-violet-500";
+
+              // Show star for Stand Out mode, circle otherwise
+              if (item?.shape === "star") {
+                return (
+                  <svg
+                    key={i}
+                    className={`h-3.5 w-3.5 transition-colors duration-300 ${colorClass}`}
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                );
+              }
               return (
                 <div
                   key={i}
-                  className={`h-3 w-3 rounded-full transition-colors duration-300 ${colorClass}`}
+                  className={`h-3 w-3 rounded-full transition-colors duration-300 ${item ? colorClass.replace('text-', 'bg-') : 'bg-stone-300 dark:bg-stone-700'}`}
                 />
               );
             })}
@@ -607,6 +732,17 @@ export default function Game() {
             >
               {gameResult === "won" ? "Victory!" : "Game Over"}
             </h2>
+            {gameResult === "won" && score.some(s => s.shape === "star" && s.color === "PURPLE") && (
+              <p className="text-violet-500 font-bold text-sm sm:text-base mb-2 flex items-center justify-center gap-1">
+                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+                Stand Out Mode
+                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+              </p>
+            )}
             <p className="text-stone-700 dark:text-stone-300 font-medium max-w-lg mx-auto text-sm sm:text-base">
               {gameData.ultimateExplanation}
             </p>
@@ -619,13 +755,28 @@ export default function Game() {
           </div>
         ) : (
           (() => {
-            const { topTip } = getTips(feedbackMessage, allRowsSelected);
+            // Freeze tip during checking phase to avoid rapid changes
+            const tip = gamePhase === "checking"
+              ? lastTipRef.current
+              : getTip(
+                  feedbackMessage,
+                  selectionsInUnrevealedRows,
+                  unrevealedRowCount,
+                  allRowsSelected,
+                  hasAnyReveals
+                );
+
+            // Update ref when not checking
+            if (gamePhase !== "checking") {
+              lastTipRef.current = tip;
+            }
+
             return (
               <p
-                key={`top-${feedbackMessage}`}
-                className={`font-medium text-sm sm:text-base animate-text-pop ${topTip.className}`}
+                key={tip.text}
+                className={`font-medium text-sm sm:text-base animate-text-pop ${tip.className}`}
               >
-                {topTip.text}
+                {tip.text}
               </p>
             );
           })()
@@ -666,6 +817,12 @@ export default function Game() {
                   slideDuration={SLIDE_DURATION}
                   onCardClick={handleCardClick}
                   rowCheckStatus={rowCheckStatuses[rIdx]}
+                  needsAttention={
+                    rowCheckStatuses[rIdx] === "pending" &&
+                    selections[rIdx] === undefined &&
+                    (failedGuesses[rIdx]?.size ?? 0) > 0
+                  }
+                  allRowsRevealed={unrevealedRowCount === 0}
                 />
               </div>
             </div>
@@ -703,40 +860,33 @@ export default function Game() {
         )}
       </div>
 
-      {/* Check button and bottom tip */}
-      {!gameResult && (
+      {/* Check button */}
+      {!gameResult && showCheckButtonDelayed && (
         <div className="max-w-2xl w-full mt-4 sm:mt-6 text-center">
-          {showCheckButton ? (
-            <div className="flex items-center justify-center gap-4 animate-text-pop">
-              <button
-                onClick={runCheckSequence}
-                className="px-8 py-3 bg-violet-500 hover:bg-violet-600 text-white font-bold rounded-lg uppercase tracking-wider transition-colors"
-              >
-                Check
-              </button>
-              <div className="flex items-center gap-1">
-                <span className="text-sm text-stone-500 dark:text-stone-400">
-                  or go for Standout Mode
-                </span>
-                <button
-                  onClick={() => setShowStandoutInfo(true)}
-                  className="p-1 text-stone-400 hover:text-violet-500 transition-colors"
-                  aria-label="What is Standout Mode?"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          ) : (
-            <p
-              key={`bottom-${allRowsSelected}`}
-              className="font-medium text-sm sm:text-base text-stone-600 dark:text-stone-400 animate-text-pop"
+          <div className="flex items-center justify-center gap-4">
+            <button
+              onClick={runCheckSequence}
+              className="px-8 py-3 bg-amber-400 hover:bg-amber-500 text-stone-900 font-bold rounded-lg uppercase tracking-wider animate-check-entrance"
             >
-              {getTips(feedbackMessage, allRowsSelected).bottomTip}
-            </p>
-          )}
+              Check
+            </button>
+            <div
+              className={`flex items-center gap-1 overflow-hidden transition-all duration-700 ease-out ${showStandoutText ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0'}`}
+            >
+              <span className="text-base text-stone-500 dark:text-stone-400 whitespace-nowrap">
+                or go for <span className="font-bold text-violet-500 animate-pulse-text">Stand Out</span> Mode
+              </span>
+              <button
+                onClick={() => setShowStandoutInfo(true)}
+                className="p-1 text-stone-400 hover:text-violet-500 transition-colors flex-shrink-0"
+                aria-label="What is Stand Out Mode?"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -751,7 +901,7 @@ export default function Game() {
           >
             <div className="flex justify-between items-start mb-4">
               <h2 className="text-xl font-bold text-stone-900 dark:text-stone-100">
-                Standout Mode
+                Stand Out Mode
               </h2>
               <button
                 onClick={() => setShowStandoutInfo(false)}
@@ -762,18 +912,9 @@ export default function Game() {
                 </svg>
               </button>
             </div>
-            <div className="space-y-3 text-stone-700 dark:text-stone-300 text-sm">
+            <div className="text-stone-700 dark:text-stone-300 text-sm">
               <p>
-                <strong>Skip the Check</strong> and go straight for the Oddest 1 Out!
-              </p>
-              <p>
-                Instead of pressing Check, tap one of your selected words directly to guess that it&apos;s the ultimate answer.
-              </p>
-              <p className="text-amber-600 dark:text-amber-400">
-                <strong>Risk:</strong> If you&apos;re wrong about which word is the Odd 1 Out in that row, you&apos;ll get a strike.
-              </p>
-              <p className="text-emerald-600 dark:text-emerald-400">
-                <strong>Reward:</strong> Win without using Check for bragging rights!
+                Skip the Check button and directly guess the Oddest of the Odd words without the help and penalty of a check. Earn a score in Stars to stand out to your friends.
               </p>
             </div>
             <button

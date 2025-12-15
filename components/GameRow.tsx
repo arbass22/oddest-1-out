@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GameRow as GameRowType, RowDisplayState, GamePhase, CardState, RowCheckStatus } from '@/types';
-import CategoryCard from '@/components/CategoryCard';
+import CategoryCard, { WordWithStatus } from '@/components/CategoryCard';
 import Card from '@/components/Card';
 
 interface GameRowProps {
@@ -16,6 +16,8 @@ interface GameRowProps {
   slideDuration: number;
   onCardClick: (rIdx: number, wIdx: number) => void;
   rowCheckStatus: RowCheckStatus;
+  needsAttention: boolean;
+  allRowsRevealed: boolean;
 }
 
 const GameRow: React.FC<GameRowProps> = ({
@@ -31,6 +33,8 @@ const GameRow: React.FC<GameRowProps> = ({
   slideDuration,
   onCardClick,
   rowCheckStatus,
+  needsAttention,
+  allRowsRevealed,
 }) => {
   const [gapSize, setGapSize] = useState("0.5rem");
 
@@ -44,16 +48,25 @@ const GameRow: React.FC<GameRowProps> = ({
   }, []);
 
   const outlierWord = row.words[row.outlierIndex];
-  const nonOutlierWords = row.words
-    .filter((_, idx) => idx !== row.outlierIndex)
-    .map((w) => w.text);
+
+  // Build non-outlier words with status for CategoryCard display
+  const nonOutlierWords: WordWithStatus[] = row.words
+    .map((w, idx) => ({
+      text: w.text,
+      index: idx,
+      status: failedIndices.has(idx) ? 'wrong' as const : 'normal' as const
+    }))
+    .filter((w) => w.index !== row.outlierIndex)
+    .map(({ text, status }) => ({ text, status }));
 
   // REVEALED STATE: Only show category card + outlier
   if (displayState === "revealed") {
     // Check-verified rows stay purple until tapped for standout
     // Only show ULTIMATE_WINNER (solid purple) after game is ended
     // Only show LOCKED_OUTLIER (amber) for standout partial (isSolved = true)
-    let outlierState = CardState.SELECTED_PHASE2;
+    // Glow (SELECTED_PHASE2) when all unrevealed rows have selections (isPhase2) OR all rows are revealed
+    const shouldGlow = isPhase2 || allRowsRevealed;
+    let outlierState = shouldGlow ? CardState.SELECTED_PHASE2 : CardState.SELECTED;
     let isClickable = gamePhase === "playing"; // Revealed outliers are clickable for standout guesses
 
     if (isUltimateWinner && gamePhase === "ended") {
@@ -153,8 +166,12 @@ const GameRow: React.FC<GameRowProps> = ({
   };
 
   // INTERACTIVE or SLIDING: Show all 4 cards
+  const attentionClasses = needsAttention
+    ? "p-0.5 sm:p-1 rounded-lg animate-pulse-glow-ring"
+    : "";
+
   return (
-    <div className="grid grid-cols-4 gap-2 sm:gap-4 h-14 sm:h-16">
+    <div className={`grid grid-cols-4 gap-2 sm:gap-4 ${needsAttention ? '' : 'h-14 sm:h-16'} ${attentionClasses}`}>
       {row.words.map((word, wIdx) => (
         <Card
           key={word.id}

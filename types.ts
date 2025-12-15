@@ -37,4 +37,7 @@ export type GameStatus = 'loading' | 'playing' | 'won' | 'lost' | 'error';
 export type RowDisplayState = 'interactive' | 'locked' | 'sliding' | 'revealed';
 
 // Game phase for animation control
-export type GamePhase = 'playing' | 'animating' | 'ended';
+export type GamePhase = 'playing' | 'checking' | 'animating' | 'ended';
+
+// Row check status for tracking which rows have been verified via Check
+export type RowCheckStatus = 'pending' | 'revealed';

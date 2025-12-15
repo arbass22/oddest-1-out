@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { GameRow as GameRowType, RowDisplayState, GamePhase, CardState } from '@/types';
-import CategoryCard from '@/components/CategoryCard';
+import { GameRow as GameRowType, RowDisplayState, GamePhase, CardState, RowCheckStatus } from '@/types';
+import CategoryCard, { WordWithStatus } from '@/components/CategoryCard';
 import Card from '@/components/Card';
 
 interface GameRowProps {
@@ -15,6 +15,9 @@ interface GameRowProps {
   isSolved: boolean;
   slideDuration: number;
   onCardClick: (rIdx: number, wIdx: number) => void;
+  rowCheckStatus: RowCheckStatus;
+  needsAttention: boolean;
+  allRowsRevealed: boolean;
 }
 
 const GameRow: React.FC<GameRowProps> = ({
@@ -29,6 +32,9 @@ const GameRow: React.FC<GameRowProps> = ({
   isSolved,
   slideDuration,
   onCardClick,
+  rowCheckStatus,
+  needsAttention,
+  allRowsRevealed,
 }) => {
   const [gapSize, setGapSize] = useState("0.5rem");
 
@@ -42,18 +48,35 @@ const GameRow: React.FC<GameRowProps> = ({
   }, []);
 
   const outlierWord = row.words[row.outlierIndex];
-  const nonOutlierWords = row.words
-    .filter((_, idx) => idx !== row.outlierIndex)
-    .map((w) => w.text);
+
+  // Build non-outlier words with status for CategoryCard display
+  const nonOutlierWords: WordWithStatus[] = row.words
+    .map((w, idx) => ({
+      text: w.text,
+      index: idx,
+      status: failedIndices.has(idx) ? 'wrong' as const : 'normal' as const
+    }))
+    .filter((w) => w.index !== row.outlierIndex)
+    .map(({ text, status }) => ({ text, status }));
 
   // REVEALED STATE: Only show category card + outlier
   if (displayState === "revealed") {
-    // Ultimate winner shows purple, solved rows stay yellow, others keep selection color
-    let outlierState = CardState.SELECTED_PHASE2;
-    if (isUltimateWinner) {
+    // Check-verified rows stay purple until tapped for standout
+    // Only show ULTIMATE_WINNER (solid purple) after game is ended
+    // Only show LOCKED_OUTLIER (amber) for standout partial (isSolved = true)
+    // Glow (SELECTED_PHASE2) when all unrevealed rows have selections (isPhase2) OR all rows are revealed
+    const shouldGlow = isPhase2 || allRowsRevealed;
+    let outlierState = shouldGlow ? CardState.SELECTED_PHASE2 : CardState.SELECTED;
+    let isClickable = gamePhase === "playing"; // Revealed outliers are clickable for standout guesses
+
+    if (isUltimateWinner && gamePhase === "ended") {
+      // Only show solid purple after game is won/ended
       outlierState = CardState.ULTIMATE_WINNER;
+      isClickable = false;
     } else if (isSolved) {
+      // Standout partial - amber (cost a strike)
       outlierState = CardState.LOCKED_OUTLIER;
+      isClickable = false; // Already tried this one
     }
 
     return (
@@ -62,8 +85,8 @@ const GameRow: React.FC<GameRowProps> = ({
         <Card
           text={outlierWord.text}
           state={outlierState}
-          onClick={() => {}}
-          disabled={true}
+          onClick={() => onCardClick(rowIndex, row.outlierIndex)}
+          disabled={!isClickable}
         />
       </div>
     );
@@ -73,17 +96,28 @@ const GameRow: React.FC<GameRowProps> = ({
   const getCardState = (wIdx: number): CardState => {
     const isOutlier = wIdx === row.outlierIndex;
 
-    // Sliding the ultimate winner: show purple for outlier
-    if (displayState === "sliding" && isUltimateWinner) {
-      return isOutlier ? CardState.ULTIMATE_WINNER : CardState.LOCKED_OTHER;
+    // During sliding for Check: keep purple (don't reveal ultimate or amber)
+    // Only show ULTIMATE_WINNER when game is ended
+    // Only show LOCKED_OUTLIER (amber) for Standout partial (isSolved)
+    if (displayState === "sliding") {
+      if (gamePhase === "ended" && isUltimateWinner) {
+        // Win sequence sliding - show solid purple for ultimate
+        return isOutlier ? CardState.ULTIMATE_WINNER : CardState.LOCKED_OTHER;
+      }
+      if (isSolved) {
+        // Standout partial sliding - show amber
+        return isOutlier ? CardState.LOCKED_OUTLIER : CardState.LOCKED_OTHER;
+      }
+      // Check sliding - stay light purple, don't reveal anything
+      return isOutlier ? CardState.SELECTED_PHASE2 : CardState.LOCKED_OTHER;
     }
 
-    // Locked state or sliding a solved row: outlier is yellow, others are grayed out
-    if (displayState === "locked" || (displayState === "sliding" && isSolved)) {
+    // Locked state (Standout partial before reveal): amber for outlier
+    if (displayState === "locked") {
       return isOutlier ? CardState.LOCKED_OUTLIER : CardState.LOCKED_OTHER;
     }
 
-    // Sliding an unsolved row: keep current colors
+    // Interactive state
     if (failedIndices.has(wIdx)) return CardState.WRONG;
     if (selection === wIdx)
       return isPhase2 ? CardState.SELECTED_PHASE2 : CardState.SELECTED;
@@ -132,8 +166,12 @@ const GameRow: React.FC<GameRowProps> = ({
   };
 
   // INTERACTIVE or SLIDING: Show all 4 cards
+  const attentionClasses = needsAttention
+    ? "p-0.5 sm:p-1 rounded-lg animate-pulse-glow-ring"
+    : "";
+
   return (
-    <div className="grid grid-cols-4 gap-2 sm:gap-4 h-14 sm:h-16">
+    <div className={`grid grid-cols-4 gap-2 sm:gap-4 ${needsAttention ? '' : 'h-14 sm:h-16'} ${attentionClasses}`}>
       {row.words.map((word, wIdx) => (
         <Card
           key={word.id}

@@ -28,7 +28,7 @@ const Card: React.FC<CardProps> = ({ text, state, onClick, disabled, style, clas
       case CardState.SELECTED:
         return "bg-white dark:bg-stone-800 border-2 border-violet-500 text-stone-800 dark:text-stone-100";
       case CardState.SELECTED_PHASE2:
-        return "bg-violet-100 dark:bg-violet-900/50 border-2 border-violet-500 text-stone-800 dark:text-stone-100 cursor-pointer";
+        return "bg-white dark:bg-stone-800 border-2 border-violet-500 text-stone-800 dark:text-stone-100 cursor-pointer animate-pulse-glow";
       case CardState.LOCKED_OUTLIER:
         return "bg-amber-200 dark:bg-amber-400/70 border-amber-300 dark:border-amber-500 text-amber-800 dark:text-amber-100 shadow-md";
       case CardState.LOCKED_OTHER:

@@ -14,3 +14,11 @@ body {
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
 }
+
+/* Synced pulse glow using CSS custom property set by JavaScript */
+.animate-pulse-glow,
+.animate-pulse-glow-ring {
+  animation: none;
+  box-shadow: 0 0 calc(8px + var(--glow-intensity, 0) * 8px) calc(2px + var(--glow-intensity, 0) * 2px) rgba(139, 92, 246, calc(0.4 + var(--glow-intensity, 0) * 0.3));
+}
+

@@ -1,8 +1,13 @@
 import React from 'react';
 
+export interface WordWithStatus {
+  text: string;
+  status: 'normal' | 'wrong' | 'partial';
+}
+
 interface CategoryCardProps {
   category: string;
-  words: string[];
+  words: WordWithStatus[];
 }
 
 const CategoryCard: React.FC<CategoryCardProps> = ({ category, words }) => {
@@ -14,8 +19,23 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, words }) => {
       <span className="font-bold text-stone-900 dark:text-stone-100 uppercase text-xs sm:text-sm tracking-widest leading-tight mb-0.5">
         {category}
       </span>
-      <span className="text-stone-600 dark:text-stone-400 uppercase text-[10px] sm:text-xs font-medium truncate w-full px-2">
-        {words.join(", ")}
+      <span className="uppercase text-[10px] sm:text-xs font-medium truncate w-full px-2">
+        {words.map((word, idx) => (
+          <span key={idx}>
+            {idx > 0 && <span className="text-stone-600 dark:text-stone-400">, </span>}
+            <span
+              className={
+                word.status === 'wrong'
+                  ? 'text-rose-500 font-bold'
+                  : word.status === 'partial'
+                  ? 'text-amber-500 font-bold'
+                  : 'text-stone-600 dark:text-stone-400'
+              }
+            >
+              {word.text}
+            </span>
+          </span>
+        ))}
       </span>
     </div>
   );

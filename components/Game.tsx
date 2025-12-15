@@ -195,6 +195,7 @@ export default function Game() {
   const [showMetaOverlay, setShowMetaOverlay] = useState(false);
 
   const [score, setScore] = useState<ScoreItem[]>([]);
+  const [hasUsedCheck, setHasUsedCheck] = useState(false);
   const [failedGuesses, setFailedGuesses] = useState<
     Record<number, Set<number>>
   >({});
@@ -224,6 +225,7 @@ export default function Game() {
       3: "interactive",
     });
     setScore([]);
+    setHasUsedCheck(false);
     setFailedGuesses({});
     setSolvedRows(new Set());
     setFeedbackMessage(null);
@@ -349,7 +351,15 @@ export default function Game() {
     setGamePhase("checking");
     setFeedbackMessage(null);
 
-    let currentScore = [...score];
+    // Mark that Check was used - Stand Out mode is now forfeit
+    setHasUsedCheck(true);
+
+    // Convert any existing stars to circles (forfeit Stand Out mode rewards)
+    let currentScore = score.map(item => ({
+      ...item,
+      shape: "circle" as ScoreShape
+    }));
+    setScore(currentScore);
 
     for (let rowIndex = 0; rowIndex < 4; rowIndex++) {
       // Skip already revealed rows
@@ -414,16 +424,19 @@ export default function Game() {
     const isUltimate = rowIndex === gameData.ultimateOutlierRowIndex;
     const isRevealed = rowCheckStatuses[rowIndex] === "revealed";
 
+    // Use stars only if Check was never used (pure Stand Out mode)
+    const scoreShape: ScoreShape = hasUsedCheck ? "circle" : "star";
+
     if (isUltimate && isRowOutlier) {
       // WIN!
-      setScore((prev) => [...prev, { color: "PURPLE" as ScoreColor, shape: "star" as ScoreShape }]);
+      setScore((prev) => [...prev, { color: "PURPLE" as ScoreColor, shape: scoreShape }]);
       await runWinSequence(rowIndex);
       return;
     }
 
     if (isRowOutlier) {
-      // Correct outlier but not ultimate → YELLOW (star for Stand Out mode)
-      const newScore = [...score, { color: "YELLOW" as ScoreColor, shape: "star" as ScoreShape }];
+      // Correct outlier but not ultimate → YELLOW
+      const newScore = [...score, { color: "YELLOW" as ScoreColor, shape: scoreShape }];
       setScore(newScore);
       setSolvedRows((prev) => new Set([...prev, rowIndex]));
 
@@ -441,8 +454,8 @@ export default function Game() {
         await runLossSequence(gameData.ultimateOutlierRowIndex);
       }
     } else {
-      // Wrong → RED (star for Stand Out mode, only possible on unrevealed rows)
-      const newScore = [...score, { color: "RED" as ScoreColor, shape: "star" as ScoreShape }];
+      // Wrong → RED (only possible on unrevealed rows)
+      const newScore = [...score, { color: "RED" as ScoreColor, shape: scoreShape }];
       setScore(newScore);
       setFeedbackMessage(newScore.length === 2 ? "lastguess" : "wrong");
 
@@ -462,7 +475,7 @@ export default function Game() {
         await runLossSequence(gameData.ultimateOutlierRowIndex);
       }
     }
-  }, [gameData, selections, score, rowCheckStatuses, runWinSequence, runLossSequence]);
+  }, [gameData, selections, score, rowCheckStatuses, hasUsedCheck, runWinSequence, runLossSequence]);
 
   // --- Game Logic ---
 
@@ -771,6 +784,19 @@ export default function Game() {
               lastTipRef.current = tip;
             }
 
+            // Special rendering for allRevealed tip - split into grey and purple parts
+            if (tip === TIPS.allRevealed) {
+              return (
+                <p
+                  key="allRevealed"
+                  className="font-medium text-sm sm:text-base animate-text-pop"
+                >
+                  <span className="text-stone-500 dark:text-stone-400">These are the Odd words for each row. </span>
+                  <span className="text-violet-600 dark:text-violet-400">Now tap the Oddest of the Odds to win.</span>
+                </p>
+              );
+            }
+
             return (
               <p
                 key={tip.text}
@@ -871,7 +897,7 @@ export default function Game() {
               Check
             </button>
             <div
-              className={`flex items-center gap-1 overflow-hidden transition-all duration-700 ease-out ${showStandoutText ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0'}`}
+              className={`flex items-center gap-1 overflow-hidden transition-all duration-700 ease-out ${showStandoutText && !hasUsedCheck ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0'}`}
             >
               <span className="text-base text-stone-500 dark:text-stone-400 whitespace-nowrap">
                 or go for <span className="font-bold text-violet-500 animate-pulse-text">Stand Out</span> Mode

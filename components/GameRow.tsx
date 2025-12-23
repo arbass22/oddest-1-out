@@ -17,7 +17,6 @@ interface GameRowProps {
   onCardClick: (rIdx: number, wIdx: number) => void;
   rowCheckStatus: RowCheckStatus;
   needsAttention: boolean;
-  allRowsRevealed: boolean;
 }
 
 const GameRow: React.FC<GameRowProps> = ({
@@ -34,7 +33,6 @@ const GameRow: React.FC<GameRowProps> = ({
   onCardClick,
   rowCheckStatus,
   needsAttention,
-  allRowsRevealed,
 }) => {
   const [gapSize, setGapSize] = useState("0.5rem");
 
@@ -64,9 +62,8 @@ const GameRow: React.FC<GameRowProps> = ({
     // Check-verified rows stay purple until tapped for standout
     // Only show ULTIMATE_WINNER (solid purple) after game is ended
     // Only show LOCKED_OUTLIER (amber) for standout partial (isSolved = true)
-    // Glow (SELECTED_PHASE2) when all unrevealed rows have selections (isPhase2) OR all rows are revealed
-    const shouldGlow = isPhase2 || allRowsRevealed;
-    let outlierState = shouldGlow ? CardState.SELECTED_PHASE2 : CardState.SELECTED;
+    // Grid cards don't glow - only OddestPuzzleRow glows to draw attention there
+    let outlierState = CardState.SELECTED;
     let isClickable = gamePhase === "playing"; // Revealed outliers are clickable for standout guesses
 
     if (isUltimateWinner && gamePhase === "ended") {
@@ -120,7 +117,7 @@ const GameRow: React.FC<GameRowProps> = ({
     // Interactive state
     if (failedIndices.has(wIdx)) return CardState.WRONG;
     if (selection === wIdx)
-      return isPhase2 ? CardState.SELECTED_PHASE2 : CardState.SELECTED;
+      return isPhase2 ? CardState.SELECTED_NO_GLOW : CardState.SELECTED;
     return CardState.IDLE;
   };
 

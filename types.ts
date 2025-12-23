@@ -22,6 +22,8 @@ export enum CardState {
   IDLE = 'IDLE',
   SELECTED = 'SELECTED', // Light gray (Phase 1 selection)
   SELECTED_PHASE2 = 'SELECTED_PHASE2', // Darker gray (Phase 2 - ready to guess)
+  SELECTED_NO_GLOW = 'SELECTED_NO_GLOW', // Selected but no glow (phase 1 complete, focus on bottom row)
+  DIMMED = 'DIMMED', // Greyed out but still clickable (other cards when one is selected for final guess)
   LOCKED_OUTLIER = 'LOCKED_OUTLIER', // Yellow (correct row outlier, awaiting reveal)
   LOCKED_OTHER = 'LOCKED_OTHER', // Grayed out (other cards in locked row)
   ULTIMATE_WINNER = 'ULTIMATE_WINNER', // Purple (the oddest one out)

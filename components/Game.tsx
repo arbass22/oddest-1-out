@@ -11,6 +11,7 @@ import {
 } from "@/types";
 import GameRow from "@/components/GameRow";
 import InfoModal from "@/components/InfoModal";
+import OddestPuzzleRow from "@/components/OddestPuzzleRow";
 
 const SCORE_LIMIT = 3;
 type ScoreColor = "RED" | "YELLOW" | "PURPLE";
@@ -22,47 +23,51 @@ interface ScoreItem {
 type FeedbackMessage = "wrong" | "partial" | "lastguess";
 
 // Tip configuration - single source of truth for all tip text
+// Note: className is now dynamic based on whether this text area is "active" (newest instruction)
 interface Tip {
+  id: string;
   text: string;
-  className: string;
+  // For split-color tips like wrong state
+  splitText?: { redPart: string; purplePart: string };
 }
 
 const TIPS: Record<string, Tip> = {
   initial: {
+    id: "initial",
     text: "3 words in each row fit a category. Tap the Odd 1 Out in each.",
-    className: "text-stone-600 dark:text-stone-400",
   },
   selecting: {
+    id: "selecting",
     text: "Keep going - find the Odd 1 Out in each row.",
-    className: "text-stone-600 dark:text-stone-400",
   },
   ready: {
-    text: "Tap a selection to guess the Oddest, or press Check.",
-    className: "text-violet-600 dark:text-violet-400",
+    id: "ready",
+    text: "You may change your selection for each row in the grid at any time.",
   },
   continueSelecting: {
+    id: "continueSelecting",
     text: "Select the Odd 1 Out in the remaining rows.",
-    className: "text-stone-600 dark:text-stone-400",
   },
   nearWin: {
+    id: "nearWin",
     text: "One row left - is this the Oddest 1 Out?",
-    className: "text-violet-600 dark:text-violet-400 font-medium",
   },
   wrong: {
-    text: "That word fits the category. Try another in that row.",
-    className: "text-rose-500",
+    id: "wrong",
+    text: "",
+    splitText: { redPart: "That word is not the Odd 1.", purplePart: "Try another in that row." },
   },
   partial: {
+    id: "partial",
     text: "Correct outlier, but not the Oddest one.",
-    className: "text-amber-500",
   },
   lastGuess: {
+    id: "lastGuess",
     text: "Final chance! Choose carefully.",
-    className: "text-rose-500 font-bold",
   },
   allRevealed: {
+    id: "allRevealed",
     text: "These are the Odd words for each row. Now tap the Oddest of the Odds to win.",
-    className: "text-violet-600 dark:text-violet-400",
   },
 };
 
@@ -184,6 +189,8 @@ export default function Game() {
   }, []);
 
   const [selections, setSelections] = useState<Record<number, number>>({});
+  const [selectionOrder, setSelectionOrder] = useState<number[]>([]); // Track order of row selections
+  const [oddestPuzzleSelection, setOddestPuzzleSelection] = useState<number | null>(null); // Track selected card in Oddest Puzzle row (by rowIndex)
   const [rowStates, setRowStates] = useState<Record<number, RowDisplayState>>({
     0: "interactive",
     1: "interactive",
@@ -200,6 +207,7 @@ export default function Game() {
     Record<number, Set<number>>
   >({});
   const [solvedRows, setSolvedRows] = useState<Set<number>>(new Set());
+  const [rowsNeedingReselection, setRowsNeedingReselection] = useState<Set<number>>(new Set());
   const [feedbackMessage, setFeedbackMessage] = useState<
     "wrong" | "partial" | "lastguess" | null
   >(null);
@@ -216,8 +224,16 @@ export default function Game() {
   // Store last displayed tip to freeze during checking phase
   const lastTipRef = useRef<Tip>(TIPS.initial);
 
+  // Keep score ref in sync for use in async callbacks (avoids stale closure issues)
+  const scoreRef = useRef<ScoreItem[]>([]);
+  useEffect(() => {
+    scoreRef.current = score;
+  }, [score]);
+
   const resetGameState = useCallback(() => {
     setSelections({});
+    setSelectionOrder([]);
+    setOddestPuzzleSelection(null);
     setRowStates({
       0: "interactive",
       1: "interactive",
@@ -225,9 +241,11 @@ export default function Game() {
       3: "interactive",
     });
     setScore([]);
+    scoreRef.current = [];
     setHasUsedCheck(false);
     setFailedGuesses({});
     setSolvedRows(new Set());
+    setRowsNeedingReselection(new Set());
     setFeedbackMessage(null);
     setVisualRowOrder([0, 1, 2, 3]);
     setShowMetaOverlay(false);
@@ -355,11 +373,13 @@ export default function Game() {
     setHasUsedCheck(true);
 
     // Convert any existing stars to circles (forfeit Stand Out mode rewards)
-    let currentScore = score.map(item => ({
+    // Use scoreRef to ensure we have the latest score (avoids stale closure issues)
+    let currentScore = scoreRef.current.map(item => ({
       ...item,
       shape: "circle" as ScoreShape
     }));
     setScore(currentScore);
+    scoreRef.current = currentScore;
 
     for (let rowIndex = 0; rowIndex < 4; rowIndex++) {
       // Skip already revealed rows
@@ -388,12 +408,15 @@ export default function Game() {
 
         currentScore = [...currentScore, { color: "RED" as ScoreColor, shape: "circle" as ScoreShape }];
         setScore(currentScore);
+        scoreRef.current = currentScore;
 
         setSelections((prev) => {
           const next = { ...prev };
           delete next[rowIndex];
           return next;
         });
+        // Mark row as needing reselection (keep in selectionOrder for slot position)
+        setRowsNeedingReselection((prev) => new Set([...prev, rowIndex]));
 
         // Show feedback message based on strikes
         setFeedbackMessage(currentScore.length === 2 ? "lastguess" : "wrong");
@@ -413,31 +436,40 @@ export default function Game() {
 
     isAnimatingRef.current = false;
     setGamePhase("playing");
-  }, [gameData, selections, score, rowCheckStatuses, runLossSequence]);
+  }, [gameData, selections, rowCheckStatuses, runLossSequence]);
 
   // --- Standout Mode: Guess the ultimate oddest one out ---
   const handleStandoutGuess = useCallback(async (rowIndex: number) => {
     if (!gameData) return;
 
-    const selectedIdx = selections[rowIndex];
+    // Clear the puzzle selection after any guess attempt
+    setOddestPuzzleSelection(null);
+
+    const isRevealed = rowCheckStatuses[rowIndex] === "revealed";
+    // For revealed rows, use the outlier index since that's what's displayed in OddestPuzzleRow
+    const selectedIdx = isRevealed
+      ? gameData.rows[rowIndex].outlierIndex
+      : selections[rowIndex];
     const isRowOutlier = selectedIdx === gameData.rows[rowIndex].outlierIndex;
     const isUltimate = rowIndex === gameData.ultimateOutlierRowIndex;
-    const isRevealed = rowCheckStatuses[rowIndex] === "revealed";
 
     // Use stars only if Check was never used (pure Stand Out mode)
     const scoreShape: ScoreShape = hasUsedCheck ? "circle" : "star";
 
     if (isUltimate && isRowOutlier) {
       // WIN!
-      setScore((prev) => [...prev, { color: "PURPLE" as ScoreColor, shape: scoreShape }]);
+      const newScore = [...scoreRef.current, { color: "PURPLE" as ScoreColor, shape: scoreShape }];
+      setScore(newScore);
+      scoreRef.current = newScore;
       await runWinSequence(rowIndex);
       return;
     }
 
     if (isRowOutlier) {
       // Correct outlier but not ultimate → YELLOW
-      const newScore = [...score, { color: "YELLOW" as ScoreColor, shape: scoreShape }];
+      const newScore = [...scoreRef.current, { color: "YELLOW" as ScoreColor, shape: scoreShape }];
       setScore(newScore);
+      scoreRef.current = newScore;
       setSolvedRows((prev) => new Set([...prev, rowIndex]));
 
       // Reveal this row if not already revealed
@@ -455,8 +487,9 @@ export default function Game() {
       }
     } else {
       // Wrong → RED (only possible on unrevealed rows)
-      const newScore = [...score, { color: "RED" as ScoreColor, shape: scoreShape }];
+      const newScore = [...scoreRef.current, { color: "RED" as ScoreColor, shape: scoreShape }];
       setScore(newScore);
+      scoreRef.current = newScore;
       setFeedbackMessage(newScore.length === 2 ? "lastguess" : "wrong");
 
       setFailedGuesses((prev) => {
@@ -470,12 +503,14 @@ export default function Game() {
         delete next[rowIndex];
         return next;
       });
+      // Remove from selection order when cleared
+      setSelectionOrder((prev) => prev.filter((idx) => idx !== rowIndex));
 
       if (newScore.length >= SCORE_LIMIT) {
         await runLossSequence(gameData.ultimateOutlierRowIndex);
       }
     }
-  }, [gameData, selections, score, rowCheckStatuses, hasUsedCheck, runWinSequence, runLossSequence]);
+  }, [gameData, selections, rowCheckStatuses, hasUsedCheck, runWinSequence, runLossSequence]);
 
   // --- Game Logic ---
 
@@ -492,6 +527,14 @@ export default function Game() {
 
   // Check if any rows have been revealed (for tip logic)
   const hasAnyReveals = Object.values(rowCheckStatuses).some(s => s === "revealed");
+
+  // All puzzle slots filled = every row is either revealed OR has a pending selection
+  const allPuzzleSlotsFilled = gameData
+    ? [0, 1, 2, 3].every((rowIdx) =>
+        rowCheckStatuses[rowIdx] === "revealed" ||
+        (rowCheckStatuses[rowIdx] === "pending" && selections[rowIdx] !== undefined)
+      )
+    : false;
 
   // Show Check button when all rows selected and game is in playing state
   const showCheckButton = allRowsSelected && gamePhase === "playing";
@@ -521,13 +564,9 @@ export default function Game() {
     if (gamePhase !== "playing" || !gameData) return;
 
     const isRevealed = rowCheckStatuses[rowIndex] === "revealed";
-    const targetRow = gameData.rows[rowIndex];
 
-    // Revealed row: only the outlier is clickable, triggers standout guess
+    // Revealed rows: no direct interaction, use Oddest Puzzle row instead
     if (isRevealed) {
-      if (wordIndex === targetRow.outlierIndex) {
-        await handleStandoutGuess(rowIndex);
-      }
       return;
     }
 
@@ -535,16 +574,24 @@ export default function Game() {
     if (rowStates[rowIndex] !== "interactive") return;
     if (failedGuesses[rowIndex]?.has(wordIndex)) return;
 
-    const currentSelection = selections[rowIndex];
+    // Clear any oddest puzzle selection when changing grid selections
+    setOddestPuzzleSelection(null);
 
-    // Clicking currently selected word when all rows selected = Standout guess
-    if (currentSelection === wordIndex && allRowsSelected) {
-      await handleStandoutGuess(rowIndex);
-      return;
-    }
-
-    // Otherwise, toggle/change selection
+    // Toggle/change selection - grid only feeds the bottom puzzle, no direct guesses
     setSelections((prev) => ({ ...prev, [rowIndex]: wordIndex }));
+    // Update selection order - add to end if not already present
+    setSelectionOrder((prev) => {
+      if (prev.includes(rowIndex)) {
+        return prev; // Already in order, keep position
+      }
+      return [...prev, rowIndex];
+    });
+    // Clear from rowsNeedingReselection if user just made a new selection for this row
+    setRowsNeedingReselection((prev) => {
+      const next = new Set(prev);
+      next.delete(rowIndex);
+      return next;
+    });
     setFeedbackMessage(null);
   };
 
@@ -560,9 +607,13 @@ export default function Game() {
     );
   }
 
-  const metaWords = gameData.rows
-    .filter((_, idx) => idx !== gameData.ultimateOutlierRowIndex)
-    .map((r) => r.words[r.outlierIndex].text);
+  const metaWordsWithStatus = gameData.rows
+    .map((r, idx) => ({
+      text: r.words[r.outlierIndex].text,
+      rowIndex: idx,
+      isPartial: solvedRows.has(idx)
+    }))
+    .filter((item) => item.rowIndex !== gameData.ultimateOutlierRowIndex);
 
   return (
     <div className="min-h-screen bg-stone-50 dark:bg-stone-900 flex flex-col items-center py-4 sm:py-8 px-3 sm:px-6 transition-colors duration-300">
@@ -706,17 +757,28 @@ export default function Game() {
           <div className="flex space-x-1">
             {[...Array(SCORE_LIMIT)].map((_, i) => {
               const item = score[i];
-              let colorClass = "text-stone-300 dark:text-stone-700";
-              if (item?.color === "RED") colorClass = "text-rose-500";
-              if (item?.color === "YELLOW") colorClass = "text-amber-400";
-              if (item?.color === "PURPLE") colorClass = "text-violet-500";
+
+              // Determine colors - using explicit class names to avoid Tailwind purging
+              let starColorClass = "text-stone-300 dark:text-stone-700";
+              let circleColorClass = "bg-stone-300 dark:bg-stone-700";
+
+              if (item?.color === "RED") {
+                starColorClass = "text-rose-500";
+                circleColorClass = "bg-rose-500";
+              } else if (item?.color === "YELLOW") {
+                starColorClass = "text-amber-400";
+                circleColorClass = "bg-amber-400";
+              } else if (item?.color === "PURPLE") {
+                starColorClass = "text-violet-500";
+                circleColorClass = "bg-violet-500";
+              }
 
               // Show star for Stand Out mode, circle otherwise
               if (item?.shape === "star") {
                 return (
                   <svg
                     key={i}
-                    className={`h-3.5 w-3.5 transition-colors duration-300 ${colorClass}`}
+                    className={`h-3.5 w-3.5 transition-colors duration-300 ${starColorClass}`}
                     fill="currentColor"
                     viewBox="0 0 24 24"
                   >
@@ -727,7 +789,7 @@ export default function Game() {
               return (
                 <div
                   key={i}
-                  className={`h-3 w-3 rounded-full transition-colors duration-300 ${item ? colorClass.replace('text-', 'bg-') : 'bg-stone-300 dark:bg-stone-700'}`}
+                  className={`h-3 w-3 rounded-full transition-colors duration-300 ${circleColorClass}`}
                 />
               );
             })}
@@ -784,6 +846,25 @@ export default function Game() {
               lastTipRef.current = tip;
             }
 
+            // Determine which text area is "active" (newest instruction = purple)
+            // Priority: bottom "tap again" > check area text > top text
+            const isBottomActive = oddestPuzzleSelection !== null;
+            const isCheckAreaActive = allPuzzleSlotsFilled && !isBottomActive;
+            const isTopActive = !isCheckAreaActive && !isBottomActive;
+
+            // Special rendering for wrong tip - split into red and purple parts
+            if (tip.splitText) {
+              return (
+                <p
+                  key={tip.id}
+                  className="font-medium text-sm sm:text-base animate-text-pop"
+                >
+                  <span className="text-rose-500">{tip.splitText.redPart} </span>
+                  <span className="text-violet-600 dark:text-violet-400">{tip.splitText.purplePart}</span>
+                </p>
+              );
+            }
+
             // Special rendering for allRevealed tip - split into grey and purple parts
             if (tip === TIPS.allRevealed) {
               return (
@@ -792,15 +873,20 @@ export default function Game() {
                   className="font-medium text-sm sm:text-base animate-text-pop"
                 >
                   <span className="text-stone-500 dark:text-stone-400">These are the Odd words for each row. </span>
-                  <span className="text-violet-600 dark:text-violet-400">Now tap the Oddest of the Odds to win.</span>
+                  <span className={isTopActive ? "text-violet-600 dark:text-violet-400" : "text-stone-500 dark:text-stone-400"}>Now tap the Oddest of the Odds to win.</span>
                 </p>
               );
             }
 
+            // Dynamic color: purple when this area is active, grey otherwise
+            const colorClass = isTopActive
+              ? "text-violet-600 dark:text-violet-400"
+              : "text-stone-500 dark:text-stone-400";
+
             return (
               <p
-                key={tip.text}
-                className={`font-medium text-sm sm:text-base animate-text-pop ${tip.className}`}
+                key={tip.id}
+                className={`font-medium text-sm sm:text-base animate-text-pop ${colorClass}`}
               >
                 {tip.text}
               </p>
@@ -848,7 +934,6 @@ export default function Game() {
                     selections[rIdx] === undefined &&
                     (failedGuesses[rIdx]?.size ?? 0) > 0
                   }
-                  allRowsRevealed={unrevealedRowCount === 0}
                 />
               </div>
             </div>
@@ -872,12 +957,16 @@ export default function Game() {
                 {gameData.metaCategory}
               </span>
               <div className="flex flex-col space-y-2">
-                {metaWords.map((word) => (
+                {metaWordsWithStatus.map((item) => (
                   <span
-                    key={word}
-                    className="text-stone-600 dark:text-stone-400 uppercase text-[10px] sm:text-xs font-medium"
+                    key={item.text}
+                    className={
+                      item.isPartial
+                        ? "text-amber-500 font-bold uppercase text-[10px] sm:text-xs"
+                        : "text-stone-600 dark:text-stone-400 uppercase text-[10px] sm:text-xs font-medium"
+                    }
                   >
-                    {word}
+                    {item.text}
                   </span>
                 ))}
               </div>
@@ -886,33 +975,99 @@ export default function Game() {
         )}
       </div>
 
-      {/* Check button */}
-      {!gameResult && showCheckButtonDelayed && (
-        <div className="max-w-2xl w-full mt-4 sm:mt-6 text-center">
-          <div className="flex items-center justify-center gap-4">
+      {/* Check button and instruction text - always visible */}
+      {!gameResult && (
+        <div className="max-w-2xl w-full mt-4 sm:mt-6">
+          <div className="flex justify-between items-center">
+            {/* Instruction text - left side */}
+            {(() => {
+              // Check area is active when all slots filled AND bottom "tap again" is not showing
+              const isCheckAreaActive = allPuzzleSlotsFilled && oddestPuzzleSelection === null;
+              const textColorClass = isCheckAreaActive
+                ? "text-violet-600 dark:text-violet-400"
+                : "text-stone-500 dark:text-stone-400";
+              return (
+                <div
+                  className={`transition-opacity duration-500 ${allPuzzleSlotsFilled ? 'opacity-100' : 'opacity-0'}`}
+                >
+                  <p className={`text-base leading-tight ${textColorClass}`}>
+                    Now pick the Oddest<br />of the Odds below
+                  </p>
+                </div>
+              );
+            })()}
+            {/* "Or" separator */}
+            <span
+              className={`text-sm text-stone-400 dark:text-stone-500 transition-opacity duration-500 ${allPuzzleSlotsFilled ? 'opacity-100' : 'opacity-0'}`}
+            >
+              Or
+            </span>
+            {/* Check button - right side */}
             <button
-              onClick={runCheckSequence}
-              className="px-8 py-3 bg-amber-400 hover:bg-amber-500 text-stone-900 font-bold rounded-lg uppercase tracking-wider animate-check-entrance"
+              onClick={allRowsSelected ? runCheckSequence : undefined}
+              disabled={!allRowsSelected || gamePhase !== "playing"}
+              className={`px-8 py-3 font-bold rounded-lg uppercase tracking-wider ${
+                allRowsSelected && gamePhase === "playing"
+                  ? 'check-button-active'
+                  : 'check-button-inactive'
+              }`}
             >
               Check
             </button>
-            <div
-              className={`flex items-center gap-1 overflow-hidden transition-all duration-700 ease-out ${showStandoutText && !hasUsedCheck ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0'}`}
-            >
-              <span className="text-base text-stone-500 dark:text-stone-400 whitespace-nowrap">
-                or go for <span className="font-bold text-violet-500 animate-pulse-text">Stand Out</span> Mode
-              </span>
-              <button
-                onClick={() => setShowStandoutInfo(true)}
-                className="p-1 text-stone-400 hover:text-violet-500 transition-colors flex-shrink-0"
-                aria-label="What is Stand Out Mode?"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-            </div>
           </div>
+        </div>
+      )}
+
+      {/* Oddest Puzzle Row - always visible during gameplay */}
+      {!gameResult && (
+        <div className="max-w-2xl w-full mt-6 sm:mt-8">
+          <OddestPuzzleRow
+            selectedWords={selectionOrder
+              .filter((rowIdx) => {
+                // Include pending rows with selections
+                if (rowCheckStatuses[rowIdx] === "pending" && selections[rowIdx] !== undefined) {
+                  return true;
+                }
+                // Include revealed rows (they show the correct outlier)
+                if (rowCheckStatuses[rowIdx] === "revealed") {
+                  return true;
+                }
+                // Include rows needing reselection (show placeholder)
+                if (rowsNeedingReselection.has(rowIdx)) {
+                  return true;
+                }
+                return false;
+              })
+              .map((rowIdx) => {
+                // Check if this row needs reselection
+                if (rowsNeedingReselection.has(rowIdx)) {
+                  return {
+                    rowIndex: rowIdx,
+                    word: null, // null indicates needs reselection
+                  };
+                }
+                const row = gameData.rows[rowIdx];
+                // For revealed rows, show the correct outlier; for pending rows, show user's selection
+                const wordIndex = rowCheckStatuses[rowIdx] === "revealed"
+                  ? row.outlierIndex
+                  : selections[rowIdx];
+                return {
+                  rowIndex: rowIdx,
+                  word: row.words[wordIndex],
+                };
+              })}
+            allSelected={allPuzzleSlotsFilled}
+            puzzleSelection={oddestPuzzleSelection}
+            onCardClick={(rowIdx) => setOddestPuzzleSelection(rowIdx)}
+            onCardSubmit={(rowIdx) => handleStandoutGuess(rowIdx)}
+            disabled={gamePhase !== "playing"}
+          />
+          {/* Tap again to submit text cue */}
+          {oddestPuzzleSelection !== null && (
+            <p className="text-center mt-3 text-sm text-violet-600 dark:text-violet-400 font-medium animate-text-pop">
+              Tap again to submit
+            </p>
+          )}
         </div>
       )}
 

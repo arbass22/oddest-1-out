@@ -643,22 +643,42 @@ export default function Game() {
         <div className="flex items-center gap-3">
           <button
             onClick={async () => {
-              let shareText = 'Can you find the Oddest1Out?';
+              // Build visual score representation
+              const scoreEmojis = score.map(s => {
+                const colorEmoji = s.color === 'RED' ? '🔴' : s.color === 'YELLOW' ? '🟡' : '🟣';
+                return s.shape === 'star' ? colorEmoji + '⭐' : colorEmoji;
+              }).join('');
+
+              const hasStars = score.some(s => s.shape === 'star');
+              const strikes = score.filter(s => s.color !== 'PURPLE').length;
+
+              let shareText = '';
 
               if (gameResult === 'won') {
-                const strikes = score.filter(s => s.color !== 'PURPLE').length;
-                const hasStars = score.some(s => s.shape === 'star');
-                if (strikes === 0 && hasStars) {
-                  shareText = 'I found the Oddest1Out in Stand Out mode with no strikes! ⭐ Can you beat that?';
-                } else if (strikes === 0) {
-                  shareText = 'I found the Oddest1Out with no strikes! Can you beat that?';
-                } else if (hasStars) {
-                  shareText = `I found the Oddest1Out in Stand Out mode! ⭐ Can you do better?`;
+                if (hasStars) {
+                  // Stand Out mode victory
+                  if (strikes === 0) {
+                    shareText = `Oddest1Out ⭐\n${scoreEmojis}\nPerfect in Stand Out mode! Can you beat that?`;
+                  } else {
+                    shareText = `Oddest1Out ⭐\n${scoreEmojis}\nStand Out mode victory! Can you do better?`;
+                  }
                 } else {
-                  shareText = `I found the Oddest1Out! Can you do better?`;
+                  // Check mode victory
+                  if (strikes === 0) {
+                    shareText = `Oddest1Out\n${scoreEmojis}\nPerfect score! Can you beat that?`;
+                  } else {
+                    shareText = `Oddest1Out\n${scoreEmojis}\nI won! Can you do better?`;
+                  }
                 }
               } else if (gameResult === 'lost') {
-                shareText = `I couldn't find the Oddest1Out today. Can you?`;
+                if (hasStars) {
+                  shareText = `Oddest1Out ⭐\n${scoreEmojis}\nSo close in Stand Out mode! Can you find it?`;
+                } else {
+                  shareText = `Oddest1Out\n${scoreEmojis}\nI couldn't find it. Can you?`;
+                }
+              } else {
+                // Game in progress
+                shareText = 'Can you find the Oddest1Out?';
               }
 
               try {

@@ -49,7 +49,7 @@ body {
   background-position: 0% 0;
   color: #1c1917;
   cursor: pointer;
-  animation: wipeActivate 0.4s ease-out forwards;
+  animation: wipeActivate 0.8s ease-out forwards;
 }
 
 .check-button-active:hover {

@@ -23,47 +23,51 @@ interface ScoreItem {
 type FeedbackMessage = "wrong" | "partial" | "lastguess";
 
 // Tip configuration - single source of truth for all tip text
+// Note: className is now dynamic based on whether this text area is "active" (newest instruction)
 interface Tip {
+  id: string;
   text: string;
-  className: string;
+  // For split-color tips like wrong state
+  splitText?: { redPart: string; purplePart: string };
 }
 
 const TIPS: Record<string, Tip> = {
   initial: {
+    id: "initial",
     text: "3 words in each row fit a category. Tap the Odd 1 Out in each.",
-    className: "text-stone-600 dark:text-stone-400",
   },
   selecting: {
+    id: "selecting",
     text: "Keep going - find the Odd 1 Out in each row.",
-    className: "text-stone-600 dark:text-stone-400",
   },
   ready: {
-    text: "Tap a selection to guess the Oddest, or press Check.",
-    className: "text-violet-600 dark:text-violet-400",
+    id: "ready",
+    text: "You may change your selection for each row in the grid at any time.",
   },
   continueSelecting: {
+    id: "continueSelecting",
     text: "Select the Odd 1 Out in the remaining rows.",
-    className: "text-stone-600 dark:text-stone-400",
   },
   nearWin: {
+    id: "nearWin",
     text: "One row left - is this the Oddest 1 Out?",
-    className: "text-violet-600 dark:text-violet-400 font-medium",
   },
   wrong: {
-    text: "That word fits the category. Try another in that row.",
-    className: "text-rose-500",
+    id: "wrong",
+    text: "",
+    splitText: { redPart: "That word is not the Odd 1.", purplePart: "Try another in that row." },
   },
   partial: {
+    id: "partial",
     text: "Correct outlier, but not the Oddest one.",
-    className: "text-amber-500",
   },
   lastGuess: {
+    id: "lastGuess",
     text: "Final chance! Choose carefully.",
-    className: "text-rose-500 font-bold",
   },
   allRevealed: {
+    id: "allRevealed",
     text: "These are the Odd words for each row. Now tap the Oddest of the Odds to win.",
-    className: "text-violet-600 dark:text-violet-400",
   },
 };
 
@@ -842,6 +846,25 @@ export default function Game() {
               lastTipRef.current = tip;
             }
 
+            // Determine which text area is "active" (newest instruction = purple)
+            // Priority: bottom "tap again" > check area text > top text
+            const isBottomActive = oddestPuzzleSelection !== null;
+            const isCheckAreaActive = allPuzzleSlotsFilled && !isBottomActive;
+            const isTopActive = !isCheckAreaActive && !isBottomActive;
+
+            // Special rendering for wrong tip - split into red and purple parts
+            if (tip.splitText) {
+              return (
+                <p
+                  key={tip.id}
+                  className="font-medium text-sm sm:text-base animate-text-pop"
+                >
+                  <span className="text-rose-500">{tip.splitText.redPart} </span>
+                  <span className="text-violet-600 dark:text-violet-400">{tip.splitText.purplePart}</span>
+                </p>
+              );
+            }
+
             // Special rendering for allRevealed tip - split into grey and purple parts
             if (tip === TIPS.allRevealed) {
               return (
@@ -850,15 +873,20 @@ export default function Game() {
                   className="font-medium text-sm sm:text-base animate-text-pop"
                 >
                   <span className="text-stone-500 dark:text-stone-400">These are the Odd words for each row. </span>
-                  <span className="text-violet-600 dark:text-violet-400">Now tap the Oddest of the Odds to win.</span>
+                  <span className={isTopActive ? "text-violet-600 dark:text-violet-400" : "text-stone-500 dark:text-stone-400"}>Now tap the Oddest of the Odds to win.</span>
                 </p>
               );
             }
 
+            // Dynamic color: purple when this area is active, grey otherwise
+            const colorClass = isTopActive
+              ? "text-violet-600 dark:text-violet-400"
+              : "text-stone-500 dark:text-stone-400";
+
             return (
               <p
-                key={tip.text}
-                className={`font-medium text-sm sm:text-base animate-text-pop ${tip.className}`}
+                key={tip.id}
+                className={`font-medium text-sm sm:text-base animate-text-pop ${colorClass}`}
               >
                 {tip.text}
               </p>
@@ -950,15 +978,24 @@ export default function Game() {
       {/* Check button and instruction text - always visible */}
       {!gameResult && (
         <div className="max-w-2xl w-full mt-4 sm:mt-6">
-          <div className="flex items-center gap-4">
+          <div className="flex justify-between items-center">
             {/* Instruction text - left side */}
-            <div
-              className={`flex-1 transition-opacity duration-500 ${allPuzzleSlotsFilled ? 'opacity-100' : 'opacity-0'}`}
-            >
-              <p className="text-sm text-stone-600 dark:text-stone-400 leading-tight">
-                Now pick the Oddest of the Odds below
-              </p>
-            </div>
+            {(() => {
+              // Check area is active when all slots filled AND bottom "tap again" is not showing
+              const isCheckAreaActive = allPuzzleSlotsFilled && oddestPuzzleSelection === null;
+              const textColorClass = isCheckAreaActive
+                ? "text-violet-600 dark:text-violet-400"
+                : "text-stone-500 dark:text-stone-400";
+              return (
+                <div
+                  className={`transition-opacity duration-500 ${allPuzzleSlotsFilled ? 'opacity-100' : 'opacity-0'}`}
+                >
+                  <p className={`text-base leading-tight ${textColorClass}`}>
+                    Now pick the Oddest<br />of the Odds below
+                  </p>
+                </div>
+              );
+            })()}
             {/* "Or" separator */}
             <span
               className={`text-sm text-stone-400 dark:text-stone-500 transition-opacity duration-500 ${allPuzzleSlotsFilled ? 'opacity-100' : 'opacity-0'}`}

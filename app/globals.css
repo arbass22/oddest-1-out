@@ -22,3 +22,39 @@ body {
   box-shadow: 0 0 calc(8px + var(--glow-intensity, 0) * 8px) calc(2px + var(--glow-intensity, 0) * 2px) rgba(139, 92, 246, calc(0.4 + var(--glow-intensity, 0) * 0.3));
 }
 
+/* Check button wiping activation animation */
+@keyframes wipeActivate {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0% 0;
+  }
+}
+
+.check-button-inactive {
+  background: #a8a29e;
+  color: #78716c;
+  cursor: not-allowed;
+}
+
+.dark .check-button-inactive {
+  background: #57534e;
+  color: #a8a29e;
+}
+
+.check-button-active {
+  background: linear-gradient(90deg, #fbbf24 50%, #a8a29e 50%);
+  background-size: 200% 100%;
+  background-position: 0% 0;
+  color: #1c1917;
+  cursor: pointer;
+  animation: wipeActivate 0.4s ease-out forwards;
+}
+
+.check-button-active:hover {
+  background: linear-gradient(90deg, #f59e0b 50%, #a8a29e 50%);
+  background-size: 200% 100%;
+  background-position: 0% 0;
+}
+

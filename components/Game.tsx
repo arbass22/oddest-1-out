@@ -221,6 +221,9 @@ export default function Game() {
   // Track if animation is running to prevent double triggers
   const isAnimatingRef = useRef(false);
 
+  // Track if game has been initialized to prevent re-initialization on idle
+  const hasInitializedRef = useRef(false);
+
   // Store last displayed tip to freeze during checking phase
   const lastTipRef = useRef<Tip>(TIPS.initial);
 
@@ -229,6 +232,12 @@ export default function Game() {
   useEffect(() => {
     scoreRef.current = score;
   }, [score]);
+
+  // Keep rowStates ref in sync for use in async animation callbacks (avoids stale closure)
+  const rowStatesRef = useRef<Record<number, RowDisplayState>>(rowStates);
+  useEffect(() => {
+    rowStatesRef.current = rowStates;
+  }, [rowStates]);
 
   const resetGameState = useCallback(() => {
     setSelections({});
@@ -275,6 +284,9 @@ export default function Game() {
   }, [resetGameState]);
 
   useEffect(() => {
+    // Guard against re-initialization (e.g., from idle tab restoration, memory pressure)
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
     initGame();
   }, [initGame]);
 
@@ -287,7 +299,8 @@ export default function Game() {
     setGameResult("won");
 
     // 1. Winner row: slide cards (only if not already revealed)
-    if (rowStates[winnerRowIndex] !== "revealed") {
+    // Use ref to get current state to avoid stale closure issues
+    if (rowStatesRef.current[winnerRowIndex] !== "revealed") {
       setRowStates((prev) => ({ ...prev, [winnerRowIndex]: "sliding" }));
       await delay(SLIDE_DURATION);
       setRowStates((prev) => ({ ...prev, [winnerRowIndex]: "revealed" }));
@@ -297,7 +310,8 @@ export default function Game() {
     // 2. Reveal other rows sequentially (skip already revealed)
     const otherRows = [0, 1, 2, 3].filter((i) => i !== winnerRowIndex);
     for (const rowIdx of otherRows) {
-      if (rowStates[rowIdx] === "revealed") continue; // Skip already revealed
+      // Use ref to get current state for each iteration
+      if (rowStatesRef.current[rowIdx] === "revealed") continue; // Skip already revealed
       setRowStates((prev) => ({ ...prev, [rowIdx]: "sliding" }));
       await delay(SLIDE_DURATION);
       setRowStates((prev) => ({ ...prev, [rowIdx]: "revealed" }));
@@ -321,7 +335,7 @@ export default function Game() {
     // 4. Show meta overlay
     setShowMetaOverlay(true);
     setGamePhase("ended");
-  }, [rowStates]);
+  }, []);
 
   const runLossSequence = useCallback(async (ultimateRowIndex: number) => {
     if (isAnimatingRef.current) return;
@@ -336,7 +350,8 @@ export default function Game() {
     rowOrder.push(ultimateRowIndex);
 
     for (const rowIdx of rowOrder) {
-      if (rowStates[rowIdx] === "revealed") continue; // Skip already revealed
+      // Use ref to get current state for each iteration
+      if (rowStatesRef.current[rowIdx] === "revealed") continue; // Skip already revealed
       setRowStates((prev) => ({ ...prev, [rowIdx]: "sliding" }));
       await delay(SLIDE_DURATION);
       setRowStates((prev) => ({ ...prev, [rowIdx]: "revealed" }));
@@ -360,7 +375,7 @@ export default function Game() {
     // Show meta overlay
     setShowMetaOverlay(true);
     setGamePhase("ended");
-  }, [rowStates]);
+  }, []);
 
   // --- Check Mode: Grade row selections one by one ---
   const runCheckSequence = useCallback(async () => {
@@ -436,7 +451,7 @@ export default function Game() {
 
     isAnimatingRef.current = false;
     setGamePhase("playing");
-  }, [gameData, selections, rowCheckStatuses, runLossSequence]);
+  }, [gameData, selections, rowCheckStatuses]);
 
   // --- Standout Mode: Guess the ultimate oddest one out ---
   const handleStandoutGuess = useCallback(async (rowIndex: number) => {
@@ -510,7 +525,7 @@ export default function Game() {
         await runLossSequence(gameData.ultimateOutlierRowIndex);
       }
     }
-  }, [gameData, selections, rowCheckStatuses, hasUsedCheck, runWinSequence, runLossSequence]);
+  }, [gameData, selections, rowCheckStatuses, hasUsedCheck]);
 
   // --- Game Logic ---
 
@@ -560,7 +575,7 @@ export default function Game() {
     }
   }, [showCheckButton]);
 
-  const handleCardClick = async (rowIndex: number, wordIndex: number) => {
+  const handleCardClick = useCallback(async (rowIndex: number, wordIndex: number) => {
     if (gamePhase !== "playing" || !gameData) return;
 
     const isRevealed = rowCheckStatuses[rowIndex] === "revealed";
@@ -571,7 +586,7 @@ export default function Game() {
     }
 
     // Unrevealed row checks
-    if (rowStates[rowIndex] !== "interactive") return;
+    if (rowStatesRef.current[rowIndex] !== "interactive") return;
     if (failedGuesses[rowIndex]?.has(wordIndex)) return;
 
     // Clear any oddest puzzle selection when changing grid selections
@@ -593,7 +608,7 @@ export default function Game() {
       return next;
     });
     setFeedbackMessage(null);
-  };
+  }, [gamePhase, gameData, rowCheckStatuses, failedGuesses]);
 
   // --- Render ---
 
